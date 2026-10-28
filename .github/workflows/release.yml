@@ -26,7 +26,7 @@ jobs:
       etiqueta: ${{ steps.v.outputs.etiqueta }}
       prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.etiqueta || github.ref }}
       - id: v
@@ -76,7 +76,7 @@ jobs:
             paquetes: nsis
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.preparar.outputs.etiqueta }}
       - uses: dtolnay/rust-toolchain@stable
