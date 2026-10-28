@@ -80,7 +80,7 @@ jobs:
         with:
           ref: ${{ needs.preparar.outputs.etiqueta }}
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Dependencias de sistema (WebKitGTK)
