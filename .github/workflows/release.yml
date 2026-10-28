@@ -99,7 +99,7 @@ jobs:
           mkdir -p dist
           find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*-setup.exe' \) -exec cp {} dist/ \;
           ls -la dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sueldapp-${{ runner.os }}-${{ runner.arch }}
           path: dist/*
