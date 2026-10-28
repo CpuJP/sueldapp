@@ -16,6 +16,7 @@ mod demo;
 mod estado;
 mod geometria;
 mod mascara;
+mod notificaciones;
 mod p_tablero;
 mod pantallas;
 mod vistas;
@@ -40,6 +41,10 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Err(e) = demo::sembrar(&c) {
             eprintln!("No se pudieron crear los datos de demostración: {e}");
         }
+    }
+    if std::env::var_os("SUELDAPP_CAPTURAS").is_some() {
+        // take_snapshot solo funciona con el renderizador por software.
+        std::env::set_var("SLINT_BACKEND", "winit-software");
     }
     let ui = Ventana::new()?;
     let est: Est = Rc::new(RefCell::new(Estado::nuevo(c)));
@@ -91,8 +96,8 @@ fn conectar(ui: &Ventana, est: &Est) {
 
     let app = ui.global::<App>();
     app.on_navegar(cb!(ui, est, |u, e, i| acciones::navegar(u, e, i)));
-    app.on_deshacer(cb!(ui, est, |u, e, id| acciones::deshacer(u, e, id)));
-    app.on_cerrar_aviso(cb!(ui, est, |u, e, id| acciones::quitar_aviso(u, e, id)));
+    app.on_deshacer(cb!(ui, est, |u, e, id| notificaciones::deshacer(u, e, id)));
+    app.on_cerrar_aviso(cb!(ui, est, |u, e, id| notificaciones::quitar(u, e, id)));
     app.on_cambiar_tam(cb!(ui, est, |u, e, i| acciones::cambiar_tam(u, e, i)));
     app.on_ajustes_cambiados(con(ui, est, acciones::ajustes_cambiados));
     app.on_abrir_gasto(cb!(ui, est, |u, e, id| acciones::abrir_gasto(
@@ -131,7 +136,7 @@ fn conectar(ui: &Ventana, est: &Est) {
     t.on_aplicar_preset(cb!(ui, est, |u, e, i| {
         let r = p_tablero::aplicar_preset(&mut e.borrow_mut(), i.max(0) as usize);
         if let Err(m) = r {
-            acciones::aviso(u, e, &m, true, None);
+            notificaciones::error(u, e, &m);
         }
         recargar(u, e);
     }));

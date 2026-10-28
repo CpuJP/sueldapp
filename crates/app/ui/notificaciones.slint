@@ -1,0 +1,85 @@
+// Notificaciones: píldoras de vidrio abajo a la derecha. Una franja vertical de color dice el
+// tipo (verde = éxito, naranja = advertencia, rojo = error), con ícono y texto para no depender
+// solo del color. La lógica (tipo, duración, deshacer) vive en src/notificaciones.rs.
+import { Tema } from "tema.slint";
+import { App, Aviso } from "estado.slint";
+import { Boton, Icono, Iconos } from "componentes.slint";
+
+component Pildora inherits Rectangle {
+    in property <Aviso> a;
+    property <color> tono: a.tipo == 2 ? Tema.franja-error : (a.tipo == 1 ? Tema.franja-advertencia : Tema.franja-exito);
+    border-radius: Tema.radio-l;
+    background: Tema.vidrio-fuerte;
+    border-width: 1px;
+    border-color: Tema.vidrio-borde;
+    drop-shadow-blur: 24px;
+    drop-shadow-offset-y: 10px;
+    drop-shadow-color: Tema.sombra.transparentize(0.4);
+    accessible-role: text;
+    accessible-label: (a.tipo == 2 ? "Error: " : (a.tipo == 1 ? "Atención: " : "")) + a.texto;
+    opacity: 0;
+    init => {
+        self.opacity = 1;
+    }
+    animate opacity { duration: Tema.rapido; }
+    HorizontalLayout {
+        padding: 8px;
+        padding-left: 10px;
+        spacing: 12px;
+        Rectangle {
+            width: 5px;
+            border-radius: 2.5px;
+            background: root.tono;
+        }
+        VerticalLayout {
+            alignment: center;
+            Icono {
+                d: a.tipo == 2 ? Iconos.error : (a.tipo == 1 ? Iconos.alerta : Iconos.check);
+                color: root.tono;
+                grosor: 2.2px;
+            }
+        }
+        Text {
+            text: a.texto;
+            color: Tema.texto;
+            font-weight: 600;
+            font-size: 14px;
+            vertical-alignment: center;
+            max-width: 360px;
+            min-height: 38px;
+            wrap: word-wrap;
+        }
+        if a.deshacer: VerticalLayout {
+            alignment: center;
+            Boton {
+                texto: "Deshacer";
+                etiqueta-accesible: "Deshacer: " + a.texto;
+                clicked => {
+                    App.deshacer(a.id);
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Boton {
+                solo-icono: true;
+                icono: Iconos.x;
+                etiqueta-accesible: "Cerrar notificación";
+                clicked => {
+                    App.cerrar-aviso(a.id);
+                }
+            }
+        }
+    }
+}
+
+export component Notificaciones inherits VerticalLayout {
+    spacing: 10px;
+    alignment: end;
+    for a in App.avisos: HorizontalLayout {
+        alignment: end;
+        Pildora {
+            a: a;
+        }
+    }
+}

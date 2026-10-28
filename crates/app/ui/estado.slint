@@ -117,7 +117,8 @@ export struct ItemFila {
 export struct Aviso {
     id: int,
     texto: string,
-    error: bool,
+    tipo: int, // 0 = éxito, 1 = advertencia, 2 = error
+
     deshacer: bool,
 }
 

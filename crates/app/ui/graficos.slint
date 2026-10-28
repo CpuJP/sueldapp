@@ -18,9 +18,9 @@ export component Grafico inherits Rectangle {
     property <length> alto: self.height - arriba - abajo;
     property <length> ancho: self.width - izq - 12px;
     property <length> banda: barras.length > 0 ? ancho / barras.length : 0px;
-    property <int> activo: -1;
-    property <length> mx;
-    property <length> my;
+    property <int> activo: ta.has-hover && banda > 0 ? min(barras.length - 1, floor(ta.mouse-x / banda)) : -1;
+    property <length> mx: ta.mouse-x;
+    property <length> my: ta.mouse-y;
     height: 260px;
     accessible-role: image;
     accessible-label: descripcion;
@@ -157,16 +157,6 @@ export component Grafico inherits Rectangle {
         y: root.arriba;
         width: root.ancho;
         height: root.alto;
-        moved => {
-            root.mx = self.mouse-x;
-            root.my = self.mouse-y;
-            root.activo = root.banda > 0 ? floor(self.mouse-x / root.banda) : -1;
-        }
-        changed has-hover => {
-            if !self.has-hover {
-                root.activo = -1;
-            }
-        }
     }
     if root.activo >= 0 && root.activo < root.barras.length: tip := Rectangle {
         x: min(root.izq + root.mx + 16px, root.width - self.width - 4px);

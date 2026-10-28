@@ -1,5 +1,5 @@
 import { Tema } from "tema.slint";
-import { Form, Confirmar, App, Aviso } from "estado.slint";
+import { Form, Confirmar, App } from "estado.slint";
 import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda } from "componentes.slint";
 
 component Campos inherits VerticalLayout {
@@ -437,45 +437,6 @@ export component DialogoConfirmar inherits Rectangle {
                         clicked => {
                             Confirmar.si();
                         }
-                    }
-                }
-            }
-        }
-    }
-}
-
-export component Avisos inherits VerticalLayout {
-    spacing: 10px;
-    alignment: end;
-    for a in App.avisos: Rectangle {
-        height: 52px;
-        width: fila.preferred-width + 30px;
-        border-radius: Tema.radio-m;
-        background: Tema.vidrio-fuerte;
-        border-width: 1px;
-        border-color: Tema.vidrio-borde;
-        drop-shadow-blur: 24px;
-        drop-shadow-offset-y: 10px;
-        drop-shadow-color: Tema.sombra.transparentize(0.4);
-        accessible-role: text;
-        accessible-label: a.texto;
-        fila := HorizontalLayout {
-            x: 18px;
-            spacing: 14px;
-            Text {
-                text: a.texto;
-                color: a.error ? Tema.negativo : Tema.texto;
-                font-weight: 600;
-                vertical-alignment: center;
-                max-width: 420px;
-                wrap: word-wrap;
-            }
-            if a.deshacer: VerticalLayout {
-                alignment: center;
-                Boton {
-                    texto: "Deshacer";
-                    clicked => {
-                        App.deshacer(a.id);
                     }
                 }
             }

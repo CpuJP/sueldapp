@@ -1,13 +1,13 @@
 //! Acciones de la interfaz: navegación, formularios, borrar con deshacer, importar/exportar.
 
-use crate::comun::{modelo, s, textos};
+use crate::comun::{s, textos};
 use crate::estado::{guardar_ajustes, AccionConfirmada, Ajustes, Deshacer, Estado, Formulario};
+use crate::notificaciones::{self, Tipo};
 use crate::vistas::{self, DeudaEntrada, GastoEntrada, IngresoEntrada, TarjetaEntrada};
-use crate::{p_tablero, pantallas, App, Aviso, Confirmar, Form, Tema, Ventana};
+use crate::{p_tablero, pantallas, App, Confirmar, Form, Tema, Ventana};
 use slint::{ComponentHandle, Weak};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::Duration;
 use sueldapp_almacen::repo;
 use sueldapp_dominio::formato::formatear;
 use sueldapp_dominio::{Decimal, Estado as EstadoGasto, Item, NOMBRES_MES};
@@ -25,44 +25,6 @@ fn opcional(v: &str) -> Option<String> {
 
 // ---------- Avisos y recarga ----------
 
-pub fn aviso(ui: &Ventana, est: &Est, texto: &str, error: bool, deshacer: Option<Deshacer>) {
-    let id = {
-        let mut e = est.borrow_mut();
-        let id = e.sig_aviso;
-        e.sig_aviso += 1;
-        let con_deshacer = deshacer.is_some();
-        if let Some(d) = deshacer {
-            e.deshacer.insert(id, d);
-        }
-        e.avisos.push(Aviso {
-            id,
-            texto: s(texto),
-            error,
-            deshacer: con_deshacer,
-        });
-        ui.global::<App>().set_avisos(modelo(e.avisos.clone()));
-        id
-    };
-    let (debil, est2) = (ui.as_weak(), est.clone());
-    let espera = if est.borrow().deshacer.contains_key(&id) {
-        9
-    } else {
-        5
-    };
-    slint::Timer::single_shot(Duration::from_secs(espera), move || {
-        if let Some(ui) = debil.upgrade() {
-            quitar_aviso(&ui, &est2, id);
-        }
-    });
-}
-
-pub fn quitar_aviso(ui: &Ventana, est: &Est, id: i32) {
-    let mut e = est.borrow_mut();
-    e.avisos.retain(|a| a.id != id);
-    e.deshacer.remove(&id);
-    ui.global::<App>().set_avisos(modelo(e.avisos.clone()));
-}
-
 pub fn recargar(ui: &Ventana, est: &Est) {
     let vista = ui.global::<App>().get_vista();
     let r = {
@@ -79,7 +41,7 @@ pub fn recargar(ui: &Ventana, est: &Est) {
         })
     };
     if let Err(m) = r {
-        aviso(ui, est, &m, true, None);
+        notificaciones::error(ui, est, &m);
     }
 }
 
@@ -230,7 +192,7 @@ pub fn abrir_gasto(
             },
             id.is_some(),
         ),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -269,7 +231,7 @@ pub fn abrir_ingreso(ui: &Ventana, est: &Est, id: Option<i64>) {
             },
             id.is_some(),
         ),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -307,7 +269,7 @@ pub fn abrir_deuda(ui: &Ventana, est: &Est, id: Option<i64>) {
             },
             id.is_some(),
         ),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -354,7 +316,7 @@ pub fn abrir_tarjeta(ui: &Ventana, est: &Est, id: Option<i64>) {
             },
             id.is_some(),
         ),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -375,7 +337,7 @@ pub fn abrir_mes(ui: &Ventana, est: &Est) {
     })();
     match r {
         Ok(n) => abrir_form(ui, 5, &format!("Editar {n}"), true),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -438,7 +400,7 @@ pub fn abrir_item(ui: &Ventana, est: &Est, tipo: i32, id: i64) {
     })();
     match r {
         Ok(n) => abrir_form(ui, 6, &format!("Editar {n}"), true),
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -572,7 +534,7 @@ pub fn guardar(ui: &Ventana, est: &Est) {
     match r {
         Ok(msg) => {
             cerrar_form(ui, est);
-            aviso(ui, est, &msg, false, None);
+            notificaciones::exito(ui, est, &msg);
             recargar(ui, est);
         }
         Err(m) => f.set_error(s(m)),
@@ -718,29 +680,16 @@ pub fn confirmar_si(ui: &Ventana, est: &Est) {
     cerrar_form(ui, est);
     match r {
         Ok((msg, d)) => {
-            aviso(
+            notificaciones::notificar(
                 ui,
                 est,
+                Tipo::Advertencia,
                 &msg,
-                false,
                 if deshacible { Some(d) } else { None },
             );
             recargar(ui, est);
         }
-        Err(m) => aviso(ui, est, &m, true, None),
-    }
-}
-
-pub fn deshacer(ui: &Ventana, est: &Est, id: i32) {
-    let d = est.borrow_mut().deshacer.remove(&id);
-    quitar_aviso(ui, est, id);
-    if let Some(d) = d {
-        let r = d(&est.borrow().c);
-        match r {
-            Ok(()) => aviso(ui, est, "Cambio deshecho.", false, None),
-            Err(m) => aviso(ui, est, &m, true, None),
-        }
-        recargar(ui, est);
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -769,10 +718,10 @@ pub fn marcar_pagado(ui: &Ventana, est: &Est, id: i64) {
     })();
     match r {
         Ok((m, d)) => {
-            aviso(ui, est, &m, false, Some(d));
+            notificaciones::notificar(ui, est, Tipo::Exito, &m, Some(d));
             recargar(ui, est);
         }
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -804,16 +753,10 @@ pub fn agregar_item(ui: &Ventana, est: &Est, tipo: i32, nombre: &str) {
     };
     match r {
         Ok(()) => {
-            aviso(
-                ui,
-                est,
-                &format!("«{}» añadido.", nombre.trim()),
-                false,
-                None,
-            );
+            notificaciones::exito(ui, est, &format!("«{}» añadido.", nombre.trim()));
             recargar(ui, est);
         }
-        Err(m) => aviso(ui, est, &m, true, None),
+        Err(m) => notificaciones::error(ui, est, &m),
     }
 }
 
@@ -840,20 +783,14 @@ pub fn importar(ui: &Ventana, est: &Est, forzar: bool) {
                 e.inicios.clear();
                 e.rango = None;
             }
-            aviso(
-                ui,
-                est,
-                if ok {
-                    "Importación terminada."
-                } else {
-                    "La importación falló; revisa el informe."
-                },
-                !ok,
-                None,
-            );
+            if ok {
+                notificaciones::exito(ui, est, "Importación terminada.");
+            } else {
+                notificaciones::error(ui, est, "La importación falló; revisa el informe.");
+            }
             recargar(ui, est);
         }
-        Err(e) => aviso(ui, est, &e.to_string(), true, None),
+        Err(e) => notificaciones::error(ui, est, &e.to_string()),
     }
 }
 
@@ -875,14 +812,12 @@ pub fn plantilla(ui: &Ventana, est: &Est) {
         return;
     };
     match sueldapp_ods::escritura::exportar_plantilla(&ruta) {
-        Ok(()) => aviso(
+        Ok(()) => notificaciones::exito(
             ui,
             est,
             &format!("Plantilla guardada en {}", ruta.display()),
-            false,
-            None,
         ),
-        Err(e) => aviso(ui, est, &e.to_string(), true, None),
+        Err(e) => notificaciones::error(ui, est, &e.to_string()),
     }
 }
 
@@ -892,14 +827,8 @@ pub fn exportar_ods(ui: &Ventana, est: &Est) {
     };
     let r = sueldapp_ods::escritura::exportar_ods(&est.borrow().c, &ruta);
     match r {
-        Ok(()) => aviso(
-            ui,
-            est,
-            &format!("Exportado en {}", ruta.display()),
-            false,
-            None,
-        ),
-        Err(e) => aviso(ui, est, &e.to_string(), true, None),
+        Ok(()) => notificaciones::exito(ui, est, &format!("Exportado en {}", ruta.display())),
+        Err(e) => notificaciones::error(ui, est, &e.to_string()),
     }
 }
 
@@ -912,14 +841,8 @@ pub fn exportar_csv(ui: &Ventana, est: &Est) {
     };
     let r = sueldapp_ods::csv::exportar_csv(&est.borrow().c, &carpeta);
     match r {
-        Ok(v) => aviso(
-            ui,
-            est,
-            &format!("{} archivos CSV guardados.", v.len()),
-            false,
-            None,
-        ),
-        Err(e) => aviso(ui, est, &e.to_string(), true, None),
+        Ok(v) => notificaciones::exito(ui, est, &format!("{} archivos CSV guardados.", v.len())),
+        Err(e) => notificaciones::error(ui, est, &e.to_string()),
     }
 }
 

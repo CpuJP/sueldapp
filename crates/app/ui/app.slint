@@ -6,7 +6,8 @@ import { PantallaResumen } from "pantallas/resumen.slint";
 import { PantallaMovimientos } from "pantallas/movimientos.slint";
 import { PantallaDeudas, PantallaTarjetas } from "pantallas/deudas.slint";
 import { PantallaCatalogos, PantallaDatos, PantallaAjustes } from "pantallas/otras.slint";
-import { Dialogo, DialogoConfirmar, Avisos } from "dialogos.slint";
+import { Dialogo, DialogoConfirmar } from "dialogos.slint";
+import { Notificaciones } from "notificaciones.slint";
 
 export { Tema, App, Util, TableroD, ResumenD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
 
@@ -275,10 +276,10 @@ export component Ventana inherits Window {
 
         if Form.tipo != 0: Dialogo { }
         if Confirmar.visible: DialogoConfirmar { }
-        Avisos {
+        Notificaciones {
             x: root.width - self.width - 22px;
             y: root.height - self.height - 22px;
-            width: 480px;
+            width: min(620px, root.width - 44px);
             height: self.preferred-height;
         }
     }

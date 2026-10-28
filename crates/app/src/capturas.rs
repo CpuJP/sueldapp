@@ -16,6 +16,10 @@ enum Paso {
     Vista(i32, &'static str),
     /// Tablero completo, con la ventana alta para que entren todos los gráficos.
     TableroAlto,
+    /// Tooltip de una barra con el puntero encima (sin pulsar).
+    Tooltip,
+    /// Las tres clases de notificación a la vez.
+    Notificaciones,
     DeudaAbierta,
     ResumenAnio,
     Dialogo,
@@ -58,6 +62,8 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
         }
         pasos.extend([
             Paso::TableroAlto,
+            Paso::Tooltip,
+            Paso::Notificaciones,
             Paso::DeudaAbierta,
             Paso::ResumenAnio,
             Paso::Dialogo,
@@ -86,6 +92,10 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                 ui.global::<Form>().set_tipo(0);
                 ui.window().set_size(slint::LogicalSize::new(1280., 840.));
                 est.borrow_mut().abiertas.clear();
+                let ids: Vec<i32> = est.borrow().avisos.iter().map(|a| a.id).collect();
+                for id in ids {
+                    crate::notificaciones::quitar(&ui, &est, id);
+                }
                 est.borrow_mut().modo_resumen = 0;
             }
             let paso = pasos.borrow_mut().pop();
@@ -105,6 +115,37 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     ui.window().set_size(slint::LogicalSize::new(1280., 1900.));
                     navegar(&ui, &est, 0);
                     *pendiente.borrow_mut() = Some(format!("tablero-2-{}", sufijo.borrow()));
+                }
+                Some(Paso::Tooltip) => {
+                    ui.window().set_size(slint::LogicalSize::new(1280., 1900.));
+                    navegar(&ui, &est, 0);
+                    ui.window()
+                        .dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                            position: slint::LogicalPosition::new(560., 880.),
+                        });
+                    *pendiente.borrow_mut() = Some(format!("tooltip-{}", sufijo.borrow()));
+                }
+                Some(Paso::Notificaciones) => {
+                    use crate::notificaciones::{notificar, Tipo};
+                    ui.window()
+                        .dispatch_event(slint::platform::WindowEvent::PointerExited);
+                    navegar(&ui, &est, 1);
+                    notificar(
+                        &ui,
+                        &est,
+                        Tipo::Error,
+                        "No se pudo guardar: el monto no es válido.",
+                        None,
+                    );
+                    notificar(&ui, &est, Tipo::Advertencia, "Cambio deshecho.", None);
+                    notificar(
+                        &ui,
+                        &est,
+                        Tipo::Exito,
+                        "«Portátil – Cuota 4» marcado como Pagado.",
+                        Some(Box::new(|_| Ok(()))),
+                    );
+                    *pendiente.borrow_mut() = Some(format!("notificaciones-{}", sufijo.borrow()));
                 }
                 Some(Paso::DeudaAbierta) => {
                     let id = crate::vistas::listar_deudas(&est.borrow().c)
