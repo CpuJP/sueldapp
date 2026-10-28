@@ -9,9 +9,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-sueldapp-almacen = { version = "0.1.0", path = "../almacen" }
-sueldapp-dominio = { version = "0.1.0", path = "../dominio" }
-sueldapp-ods = { version = "0.1.0", path = "../ods" }
+sueldapp-almacen = { version = "0.2.0", path = "../almacen" }
+sueldapp-dominio = { version = "0.2.0", path = "../dominio" }
+sueldapp-ods = { version = "0.2.0", path = "../ods" }
 slint = { version = "1.18.1", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg", "renderer-software", "accessibility"] }
 rfd = "0.17"
 png = "0.18"
