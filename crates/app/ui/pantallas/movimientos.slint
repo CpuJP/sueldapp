@@ -1,0 +1,178 @@
+import { Tema } from "../tema.slint";
+import { MovsD, App } from "../estado.slint";
+import { Boton, Iconos, Campo, Selector, TablaGastos, Paginador, Titulo, Ayuda } from "../componentes.slint";
+import { Encabezado, Desplazable, Panel } from "comun.slint";
+
+component Filtro inherits VerticalLayout {
+    in property <string> etiqueta;
+    spacing: 4px;
+    Text {
+        text: root.etiqueta;
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 13.5px;
+    }
+    @children
+}
+
+export component PantallaMovimientos inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Movimientos";
+        Boton {
+            texto: "Nuevo gasto";
+            icono: Iconos.mas;
+            primario: true;
+            clicked => {
+                App.nuevo-gasto();
+            }
+        }
+    }
+    Desplazable {
+        Panel {
+            accessible-role: groupbox;
+            accessible-label: "Filtros";
+            GridLayout {
+                spacing: 10px;
+                Row {
+                    Filtro {
+                        colspan: 2;
+                        etiqueta: "Buscar";
+                        Campo {
+                            etiqueta: "Buscar por concepto o nota";
+                            icono: Iconos.buscar;
+                            marcador: "Concepto o nota";
+                            texto <=> MovsD.texto;
+                            editado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        col: 2;
+                        etiqueta: "Año";
+                        Selector {
+                            etiqueta: "Año";
+                            opciones: MovsD.o-anios;
+                            indice <=> MovsD.anio;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        etiqueta: "Mes";
+                        Selector {
+                            etiqueta: "Mes";
+                            opciones: MovsD.o-meses;
+                            indice <=> MovsD.mes;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        etiqueta: "Estado";
+                        Selector {
+                            etiqueta: "Estado";
+                            opciones: MovsD.o-estados;
+                            indice <=> MovsD.estado;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        etiqueta: "Pago";
+                        Selector {
+                            etiqueta: "Pago";
+                            opciones: MovsD.o-pagos;
+                            indice <=> MovsD.pago;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                }
+                Row {
+                    Filtro {
+                        colspan: 2;
+                        etiqueta: "Categoría";
+                        Selector {
+                            etiqueta: "Categoría";
+                            opciones: MovsD.o-categorias;
+                            indice <=> MovsD.categoria;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        col: 2;
+                        etiqueta: "Deuda";
+                        Selector {
+                            etiqueta: "Deuda";
+                            opciones: MovsD.o-deudas;
+                            indice <=> MovsD.deuda;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        etiqueta: "Tarjeta";
+                        Selector {
+                            etiqueta: "Tarjeta";
+                            opciones: MovsD.o-tarjetas;
+                            indice <=> MovsD.tarjeta;
+                            cambiado => {
+                                MovsD.filtrar();
+                            }
+                        }
+                    }
+                    Filtro {
+                        etiqueta: " ";
+                        Boton {
+                            texto: "Limpiar filtros";
+                            clicked => {
+                                MovsD.limpiar();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Panel {
+            HorizontalLayout {
+                Titulo {
+                    text: MovsD.titulo;
+                    horizontal-stretch: 1;
+                }
+                Ayuda {
+                    text: "Suma: " + MovsD.suma;
+                    horizontal-alignment: right;
+                }
+            }
+            TablaGastos {
+                filas: MovsD.filas;
+                con-mes: true;
+                abrir(id) => {
+                    App.abrir-gasto(id);
+                }
+            }
+            Paginador {
+                pagina: MovsD.pagina;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    MovsD.paginar(false);
+                }
+                siguiente => {
+                    MovsD.paginar(true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+    }
+}

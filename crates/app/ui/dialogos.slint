@@ -1,0 +1,484 @@
+import { Tema } from "tema.slint";
+import { Form, Confirmar, App, Aviso } from "estado.slint";
+import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda } from "componentes.slint";
+
+component Campos inherits VerticalLayout {
+    in property <string> etiqueta;
+    in property <string> ayuda;
+    spacing: 5px;
+    horizontal-stretch: 1;
+    alignment: start;
+    Text {
+        text: root.etiqueta;
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 13.5px;
+    }
+    @children
+    if root.ayuda != "": Ayuda {
+        text: root.ayuda;
+        font-size: 13px;
+    }
+}
+
+component Fondo-Modal inherits Rectangle {
+    background: Tema.solido ? #081214a0 : #0812145a;
+    TouchArea { }
+}
+
+export component Dialogo inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    Fondo-Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+    escape := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                Form.cancelar();
+                return accept;
+            }
+            reject
+        }
+        Vidrio {
+            fuerte: true;
+            width: min(560px, root.width - 40px);
+            height: contenido.preferred-height;
+            x: (root.width - self.width) / 2;
+            y: max(20px, (root.height - self.height) / 2);
+            accessible-role: groupbox;
+            accessible-label: Form.titulo;
+            contenido := VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+                Titulo {
+                    text: Form.titulo;
+                    font-size: 19px;
+                }
+                if Form.error != "": Rectangle {
+                    border-radius: Tema.radio-s;
+                    background: Tema.negativo-suave;
+                    min-height: 36px;
+                    Text {
+                        x: 12px;
+                        width: parent.width - 24px;
+                        height: parent.height;
+                        text: Form.error;
+                        color: Tema.negativo;
+                        font-weight: 600;
+                        wrap: word-wrap;
+                        vertical-alignment: center;
+                        accessible-role: text;
+                    }
+                }
+                // 1: gasto
+                if Form.tipo == 1: VerticalLayout {
+                    spacing: 12px;
+                    Campos {
+                        etiqueta: "Concepto";
+                        primero := Campo {
+                            etiqueta: "Concepto";
+                            texto <=> Form.t1;
+                            init => {
+                                self.focus();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Monto (COP)";
+                            ayuda: "Ejemplo: 150.000 o 150000,50";
+                            Campo {
+                                etiqueta: "Monto en pesos";
+                                monto: true;
+                                texto <=> Form.t2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Estado";
+                            Selector {
+                                etiqueta: "Estado";
+                                opciones: Form.o1;
+                                indice <=> Form.s1;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Mes";
+                            Selector {
+                                etiqueta: "Mes";
+                                opciones: Form.o2;
+                                indice <=> Form.s2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Año";
+                            Campo {
+                                etiqueta: "Año";
+                                texto <=> Form.t3;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Categoría";
+                            Selector {
+                                etiqueta: "Categoría";
+                                opciones: Form.o3;
+                                indice <=> Form.s3;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Cuota de la deuda";
+                            Selector {
+                                etiqueta: "Cuota de la deuda";
+                                opciones: Form.o4;
+                                indice <=> Form.s4;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Pago de la tarjeta";
+                            Selector {
+                                etiqueta: "Pago de la tarjeta";
+                                opciones: Form.o5;
+                                indice <=> Form.s5;
+                            }
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    Campos {
+                        etiqueta: "Nota";
+                        Campo {
+                            etiqueta: "Nota";
+                            multilinea: true;
+                            texto <=> Form.t4;
+                        }
+                    }
+                    Casilla {
+                        texto: "No contar en los totales del mes";
+                        marcada <=> Form.b1;
+                    }
+                }
+                // 2: ingreso
+                if Form.tipo == 2: VerticalLayout {
+                    spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Fuente";
+                            Selector {
+                                etiqueta: "Fuente";
+                                opciones: Form.o1;
+                                indice <=> Form.s1;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Monto (COP)";
+                            Campo {
+                                etiqueta: "Monto en pesos";
+                                monto: true;
+                                texto <=> Form.t2;
+                                init => {
+                                    self.focus();
+                                }
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Mes";
+                            Selector {
+                                etiqueta: "Mes";
+                                opciones: Form.o2;
+                                indice <=> Form.s2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Año";
+                            Campo {
+                                etiqueta: "Año";
+                                texto <=> Form.t3;
+                            }
+                        }
+                    }
+                    Campos {
+                        etiqueta: "Nota";
+                        Campo {
+                            etiqueta: "Nota";
+                            multilinea: true;
+                            texto <=> Form.t4;
+                        }
+                    }
+                }
+                // 3: deuda
+                if Form.tipo == 3: VerticalLayout {
+                    spacing: 12px;
+                    Campos {
+                        etiqueta: "Nombre";
+                        Campo {
+                            etiqueta: "Nombre de la deuda";
+                            texto <=> Form.t1;
+                            init => {
+                                self.focus();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Total de la deuda (COP)";
+                            ayuda: "Déjalo vacío si no lo sabes.";
+                            Campo {
+                                etiqueta: "Total de la deuda";
+                                monto: true;
+                                texto <=> Form.t2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Pagado sin cuota (COP)";
+                            ayuda: "Pagos que no están como gasto.";
+                            Campo {
+                                etiqueta: "Pagado sin cuota";
+                                monto: true;
+                                texto <=> Form.t3;
+                            }
+                        }
+                    }
+                    Campos {
+                        etiqueta: "Notas";
+                        Campo {
+                            etiqueta: "Notas";
+                            multilinea: true;
+                            texto <=> Form.t4;
+                        }
+                    }
+                    Casilla {
+                        texto: "Deuda saldada";
+                        marcada <=> Form.b1;
+                    }
+                }
+                // 4: tarjeta
+                if Form.tipo == 4: VerticalLayout {
+                    spacing: 12px;
+                    Campos {
+                        etiqueta: "Nombre";
+                        Campo {
+                            etiqueta: "Nombre de la tarjeta";
+                            texto <=> Form.t1;
+                            init => {
+                                self.focus();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Cupo (COP)";
+                            Campo {
+                                etiqueta: "Cupo";
+                                monto: true;
+                                texto <=> Form.t2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Saldo actual (COP)";
+                            ayuda: "Lo que debes hoy en la tarjeta.";
+                            Campo {
+                                etiqueta: "Saldo actual";
+                                monto: true;
+                                texto <=> Form.t3;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Día de corte";
+                            Campo {
+                                etiqueta: "Día de corte";
+                                texto <=> Form.t4;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Día de pago";
+                            Campo {
+                                etiqueta: "Día de pago";
+                                texto <=> Form.t5;
+                            }
+                        }
+                    }
+                }
+                // 5: mes
+                if Form.tipo == 5: Casilla {
+                    texto: "Mes cerrado (ya no esperas más movimientos)";
+                    marcada <=> Form.b1;
+                }
+                // 6: elemento de catálogo
+                if Form.tipo == 6: VerticalLayout {
+                    spacing: 12px;
+                    Campos {
+                        etiqueta: "Nombre";
+                        Campo {
+                            etiqueta: "Nombre";
+                            texto <=> Form.t1;
+                            init => {
+                                self.focus();
+                            }
+                        }
+                    }
+                    if Form.es-estado: Casilla {
+                        texto: "Cuenta como pagado";
+                        marcada <=> Form.b1;
+                    }
+                    Campos {
+                        etiqueta: "Si lo borras, sus movimientos pasan a";
+                        ayuda: "Solo se usa al borrar.";
+                        Selector {
+                            etiqueta: "Reasignar al borrar";
+                            opciones: Form.o1;
+                            indice <=> Form.s1;
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    padding-top: 6px;
+                    if Form.puede-borrar: Boton {
+                        texto: "Borrar";
+                        peligro: true;
+                        clicked => {
+                            Form.borrar();
+                        }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    Boton {
+                        texto: "Cancelar";
+                        clicked => {
+                            Form.cancelar();
+                        }
+                    }
+                    Boton {
+                        texto: "Guardar";
+                        primario: true;
+                        clicked => {
+                            Form.guardar();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DialogoConfirmar inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    Fondo-Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+    FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                Confirmar.no();
+                return accept;
+            }
+            reject
+        }
+        Vidrio {
+            fuerte: true;
+            width: min(480px, root.width - 40px);
+            height: c.preferred-height;
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            accessible-role: groupbox;
+            accessible-label: Confirmar.titulo;
+            c := VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+                Titulo {
+                    text: Confirmar.titulo;
+                    font-size: 19px;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: Confirmar.texto;
+                    color: Tema.texto;
+                    wrap: word-wrap;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    Boton {
+                        texto: "Cancelar";
+                        init => {
+                            self.focus();
+                        }
+                        clicked => {
+                            Confirmar.no();
+                        }
+                    }
+                    Boton {
+                        texto: Confirmar.boton;
+                        primario: true;
+                        clicked => {
+                            Confirmar.si();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Avisos inherits VerticalLayout {
+    spacing: 10px;
+    alignment: end;
+    for a in App.avisos: Rectangle {
+        height: 52px;
+        width: fila.preferred-width + 30px;
+        border-radius: Tema.radio-m;
+        background: Tema.vidrio-fuerte;
+        border-width: 1px;
+        border-color: Tema.vidrio-borde;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: Tema.sombra.transparentize(0.4);
+        accessible-role: text;
+        accessible-label: a.texto;
+        fila := HorizontalLayout {
+            x: 18px;
+            spacing: 14px;
+            Text {
+                text: a.texto;
+                color: a.error ? Tema.negativo : Tema.texto;
+                font-weight: 600;
+                vertical-alignment: center;
+                max-width: 420px;
+                wrap: word-wrap;
+            }
+            if a.deshacer: VerticalLayout {
+                alignment: center;
+                Boton {
+                    texto: "Deshacer";
+                    clicked => {
+                        App.deshacer(a.id);
+                    }
+                }
+            }
+        }
+    }
+}

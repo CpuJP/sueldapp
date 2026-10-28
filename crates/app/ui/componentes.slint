@@ -1,0 +1,819 @@
+// Componentes base con el lenguaje visual de vidrio de Sueldapp.
+import { Tema } from "tema.slint";
+import { Fila, Pagina, Util } from "estado.slint";
+
+export global Iconos {
+    out property <string> tablero: "M4 19h16M7 15l4-5 3 3 5-7";
+    out property <string> resumen: "M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 4v4h6V4z";
+    out property <string> movimientos: "M4 6h16M4 12h16M4 18h10";
+    out property <string> deudas: "M4 18h16M6 18V9M10 18V6M14 18v-7M18 18V4";
+    out property <string> tarjetas: "M6 6h12a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3zM3 10h18M7 15h4";
+    out property <string> catalogos: "M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 16h6";
+    out property <string> datos: "M12 3v12M8 11l4 4 4-4M5 21h14";
+    out property <string> ajustes: "M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1";
+    out property <string> anterior: "M15 5l-7 7 7 7";
+    out property <string> siguiente: "M9 5l7 7-7 7";
+    out property <string> mas: "M12 5v14M5 12h14";
+    out property <string> lapiz: "M4 20h4L19 9l-4-4L4 16z";
+    out property <string> check: "M5 12l5 5 9-10";
+    out property <string> reloj: "M20 12a8 8 0 1 1-16 0a8 8 0 1 1 16 0zM12 8v4l3 2";
+    out property <string> x: "M6 6l12 12M18 6L6 18";
+    out property <string> pausa: "M9 6v12M15 6v12";
+    out property <string> buscar: "M17 11a6 6 0 1 1-12 0a6 6 0 1 1 12 0zM20 20l-4.5-4.5";
+    out property <string> calendario: "M7 5h10a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM4 10h16M8 3v4M16 3v4";
+    out property <string> chevron: "M7 10l5 5 5-5";
+    out property <string> sistema: "M5 4h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 20h8M12 16v4";
+    out property <string> sol: "M16 12a4 4 0 1 1-8 0a4 4 0 1 1 8 0zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4";
+    out property <string> luna: "M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z";
+}
+
+export component Icono inherits Path {
+    in property <string> d;
+    in property <color> color: Tema.texto;
+    in property <length> grosor: 2px;
+    width: 18px;
+    height: 18px;
+    commands: d;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    stroke: color;
+    stroke-width: grosor;
+    fill: transparent;
+    stroke-line-cap: round;
+}
+
+// Superficie translúcida con borde especular y sombra.
+export component Vidrio inherits Rectangle {
+    in property <bool> fuerte: false;
+    in property <bool> con-sombra: true;
+    background: fuerte ? Tema.vidrio-fuerte : Tema.vidrio;
+    border-radius: Tema.radio-l;
+    border-width: 1px;
+    border-color: Tema.vidrio-borde;
+    drop-shadow-blur: con-sombra ? 28px : 0px;
+    drop-shadow-offset-y: con-sombra ? 12px : 0px;
+    drop-shadow-color: con-sombra ? Tema.sombra.transparentize(0.55) : transparent;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: parent.border-radius;
+        background: @linear-gradient(180deg, Tema.brillo-bajo 0%, transparent 38%);
+    }
+    @children
+}
+
+export component Boton inherits Rectangle {
+    in property <string> texto;
+    in property <string> icono;
+    in property <bool> primario;
+    in property <bool> peligro;
+    in property <bool> habilitado: true;
+    in property <bool> solo-icono;
+    in property <string> etiqueta-accesible: texto;
+    callback clicked();
+    property <color> tinta: primario ? Tema.acento-texto : (peligro ? Tema.negativo : Tema.texto);
+    height: 38px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: solo-icono ? 38px : 0px;
+    border-radius: self.height / 2;
+    background: primario ? (ta.has-hover ? Tema.acento.brighter(0.08) : Tema.acento) : (ta.has-hover ? Tema.vidrio-fuerte : Tema.vidrio-hundido);
+    border-width: primario ? 0px : 1px;
+    border-color: Tema.vidrio-borde;
+    opacity: habilitado ? 1 : 0.5;
+    accessible-role: button;
+    accessible-label: etiqueta-accesible;
+    accessible-enabled: habilitado;
+    accessible-action-default => {
+        if habilitado {
+            clicked();
+        }
+    }
+    forward-focus: fs;
+    animate background { duration: Tema.rapido; }
+    HorizontalLayout {
+        padding-left: solo-icono ? 10px : 15px;
+        padding-right: solo-icono ? 10px : 15px;
+        spacing: 8px;
+        alignment: center;
+        if icono != "": VerticalLayout {
+            alignment: center;
+            Icono {
+                d: icono;
+                color: tinta;
+            }
+        }
+        if !solo-icono && texto != "": Text {
+            text: texto;
+            color: tinta;
+            font-weight: 650;
+            font-size: 14px;
+            vertical-alignment: center;
+        }
+    }
+    fs := FocusScope {
+        enabled: habilitado;
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.clicked();
+                return accept;
+            }
+            reject
+        }
+    }
+    ta := TouchArea {
+        enabled: habilitado;
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            root.clicked();
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: root.border-radius + 3px;
+        border-width: fs.has-focus ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+export component Campo inherits Rectangle {
+    in property <string> etiqueta;
+    in-out property <string> texto;
+    in property <string> marcador;
+    in property <bool> monto;
+    in property <bool> multilinea;
+    in property <string> icono;
+    callback editado(string);
+    callback aceptado();
+    height: multilinea ? 72px : 40px;
+    border-radius: Tema.radio-s;
+    background: Tema.vidrio-hundido;
+    border-width: ti.has-focus ? 2px : 1px;
+    border-color: ti.has-focus ? Tema.acento : Tema.borde-suave;
+    forward-focus: ti;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: multilinea ? 9px : 0px;
+        padding-bottom: multilinea ? 9px : 0px;
+        spacing: 8px;
+        if icono != "": VerticalLayout {
+            alignment: center;
+            Icono {
+                d: icono;
+                color: Tema.texto-3;
+            }
+        }
+        ti := TextInput {
+            text <=> root.texto;
+            color: Tema.texto;
+            font-size: 15px;
+            single-line: !multilinea;
+            wrap: multilinea ? word-wrap : no-wrap;
+            vertical-alignment: multilinea ? top : center;
+            selection-background-color: Tema.acento-suave;
+            selection-foreground-color: Tema.texto;
+            input-type: text;
+            accessible-label: etiqueta;
+            edited => {
+                if root.monto {
+                    self.text = Util.formatear-monto(self.text);
+                    self.set-selection-offsets(self.text.character-count, self.text.character-count);
+                }
+                root.editado(self.text);
+            }
+            accepted => {
+                root.aceptado();
+            }
+            Text {
+                visible: root.texto == "";
+                text: root.marcador;
+                color: Tema.texto-3;
+                font-size: 15px;
+                vertical-alignment: root.multilinea ? top : center;
+                width: parent.width;
+                height: parent.height;
+            }
+        }
+    }
+}
+
+export component Selector inherits Rectangle {
+    in property <[string]> opciones;
+    in-out property <int> indice;
+    in property <string> etiqueta;
+    callback cambiado(int);
+    height: 40px;
+    min-width: 110px;
+    border-radius: Tema.radio-s;
+    background: ta.has-hover ? Tema.vidrio-fuerte : Tema.vidrio-hundido;
+    border-width: fs.has-focus ? 2px : 1px;
+    border-color: fs.has-focus ? Tema.acento : Tema.borde-suave;
+    accessible-role: combobox;
+    accessible-label: etiqueta;
+    accessible-value: opciones[indice];
+    forward-focus: fs;
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 10px;
+        spacing: 6px;
+        Text {
+            text: root.opciones[root.indice];
+            color: Tema.texto;
+            font-size: 15px;
+            overflow: elide;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            Icono {
+                d: Iconos.chevron;
+                color: Tema.texto-3;
+            }
+        }
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.DownArrow {
+                if root.indice < root.opciones.length - 1 {
+                    root.indice += 1;
+                    root.cambiado(root.indice);
+                }
+                return accept;
+            }
+            if e.text == Key.UpArrow {
+                if root.indice > 0 {
+                    root.indice -= 1;
+                    root.cambiado(root.indice);
+                }
+                return accept;
+            }
+            if e.text == " " || e.text == "\n" {
+                lista.show();
+                return accept;
+            }
+            reject
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            lista.show();
+        }
+    }
+    lista := PopupWindow {
+        x: 0;
+        y: root.height + 4px;
+        width: max(root.width, 180px);
+        height: min(root.opciones.length * 34px + 14px, 320px);
+        Rectangle {
+            background: Tema.vidrio-fuerte;
+            border-radius: Tema.radio-s;
+            border-width: 1px;
+            border-color: Tema.vidrio-borde;
+            drop-shadow-blur: 20px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: Tema.sombra.transparentize(0.5);
+            Flickable {
+                content-height: root.opciones.length * 34px + 12px;
+                VerticalLayout {
+                    padding: 6px;
+                    for o[i] in root.opciones: Rectangle {
+                        height: 34px;
+                        border-radius: 8px;
+                        background: i == root.indice ? Tema.acento-suave : (t.has-hover ? Tema.vidrio-hundido : transparent);
+                        Text {
+                            x: 10px;
+                            width: parent.width - 20px;
+                            text: o;
+                            color: Tema.texto;
+                            font-size: 14.5px;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                        t := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.indice = i;
+                                root.cambiado(i);
+                                lista.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: root.border-radius + 3px;
+        border-width: false ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+export component Interruptor inherits Rectangle {
+    in-out property <bool> activo;
+    in property <string> etiqueta;
+    callback cambiado(bool);
+    width: 50px;
+    height: 30px;
+    horizontal-stretch: 0;
+    border-radius: 15px;
+    background: activo ? Tema.acento : (Tema.oscuro ? #ffffff29 : #0f1a1c47);
+    border-width: 1px;
+    border-color: Tema.borde-suave;
+    accessible-role: checkbox;
+    accessible-checkable: true;
+    accessible-checked: activo;
+    accessible-label: etiqueta;
+    accessible-action-default => {
+        activo = !activo;
+        cambiado(activo);
+    }
+    forward-focus: fs;
+    animate background { duration: Tema.rapido; }
+    Rectangle {
+        x: root.activo ? 23px : 3px;
+        y: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        background: #ffffff;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #0000004d;
+        drop-shadow-offset-y: 1px;
+        animate x { duration: Tema.rapido; }
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.activo = !root.activo;
+                root.cambiado(root.activo);
+                return accept;
+            }
+            reject
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            root.activo = !root.activo;
+            root.cambiado(root.activo);
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: root.border-radius + 3px;
+        border-width: fs.has-focus ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+export component Casilla inherits HorizontalLayout {
+    in-out property <bool> marcada;
+    in property <string> texto;
+    callback cambiado(bool);
+    spacing: 10px;
+    caja := Rectangle {
+        width: 20px;
+        height: 20px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 6px;
+        background: marcada ? Tema.acento : Tema.vidrio-hundido;
+        border-width: fs.has-focus ? 2px : 1px;
+        border-color: fs.has-focus ? Tema.acento : Tema.base-eje;
+        accessible-role: checkbox;
+        accessible-checkable: true;
+        accessible-checked: marcada;
+        accessible-label: texto;
+        if marcada: Icono {
+            x: 1px;
+            y: 1px;
+            d: Iconos.check;
+            color: Tema.acento-texto;
+            grosor: 3px;
+        }
+        fs := FocusScope {
+            key-pressed(e) => {
+                if e.text == " " {
+                    root.marcada = !root.marcada;
+                    root.cambiado(root.marcada);
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+    Text {
+        text: texto;
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 14px;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            root.marcada = !root.marcada;
+            root.cambiado(root.marcada);
+        }
+    }
+}
+
+export component Segmentado inherits Rectangle {
+    in property <[string]> opciones;
+    in property <[string]> iconos;
+    in-out property <int> indice;
+    in property <string> etiqueta;
+    callback cambiado(int);
+    height: 38px;
+    horizontal-stretch: 0;
+    border-radius: 19px;
+    background: Tema.vidrio-hundido;
+    border-width: 1px;
+    border-color: Tema.borde-suave;
+    accessible-role: tab-list;
+    accessible-label: etiqueta;
+    forward-focus: fs;
+    HorizontalLayout {
+        padding: 3px;
+        spacing: 2px;
+        for o[i] in root.opciones: Rectangle {
+            border-radius: 16px;
+            background: i == root.indice ? Tema.vidrio-fuerte : transparent;
+            drop-shadow-blur: i == root.indice ? 4px : 0px;
+            drop-shadow-color: #00000026;
+            accessible-role: tab;
+            accessible-label: o;
+            accessible-checked: i == root.indice;
+            accessible-action-default => {
+                root.indice = i;
+                root.cambiado(i);
+            }
+            HorizontalLayout {
+                padding-left: 13px;
+                padding-right: 13px;
+                spacing: 7px;
+                if root.iconos.length > i: VerticalLayout {
+                    alignment: center;
+                    Icono {
+                        width: 16px;
+                        height: 16px;
+                        d: root.iconos[i];
+                        color: i == root.indice ? Tema.acento : Tema.texto-2;
+                    }
+                }
+                Text {
+                    text: o;
+                    font-weight: 600;
+                    font-size: 14px;
+                    color: i == root.indice ? Tema.texto : Tema.texto-2;
+                    vertical-alignment: center;
+                }
+            }
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    fs.focus();
+                    root.indice = i;
+                    root.cambiado(i);
+                }
+            }
+        }
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.RightArrow && root.indice < root.opciones.length - 1 {
+                root.indice += 1;
+                root.cambiado(root.indice);
+                return accept;
+            }
+            if e.text == Key.LeftArrow && root.indice > 0 {
+                root.indice -= 1;
+                root.cambiado(root.indice);
+                return accept;
+            }
+            reject
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: root.border-radius + 3px;
+        border-width: fs.has-focus ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+export component Chip inherits Rectangle {
+    in property <string> texto;
+    height: 20px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: Tema.borde-suave;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        Text {
+            text: texto;
+            font-size: 12px;
+            font-weight: 600;
+            color: Tema.texto-2;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Estado con icono y texto (nunca solo color). tipo: 0 pendiente, 1 pagado, 2 no, 3 aplazado.
+export component EstadoChip inherits Rectangle {
+    in property <string> texto;
+    in property <int> tipo;
+    property <color> tinta: tipo == 1 ? Tema.positivo : (tipo == 2 ? Tema.negativo : Tema.aviso);
+    height: 26px;
+    border-radius: 13px;
+    background: tipo == 1 ? Tema.vidrio-hundido : (tipo == 2 ? Tema.negativo-suave : Tema.aviso-suave);
+    border-width: 1px;
+    border-color: Tema.borde-suave;
+    accessible-role: text;
+    accessible-label: "Estado: " + texto;
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 10px;
+        spacing: 6px;
+        VerticalLayout {
+            alignment: center;
+            Icono {
+                width: 14px;
+                height: 14px;
+                grosor: 2.4px;
+                color: tinta;
+                d: tipo == 1 ? Iconos.check : (tipo == 2 ? Iconos.x : (tipo == 3 ? Iconos.pausa : Iconos.reloj));
+            }
+        }
+        Text {
+            text: texto;
+            color: tinta;
+            font-size: 13px;
+            font-weight: 650;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component Progreso inherits Rectangle {
+    in property <float> valor; // 0..100
+    in property <color> relleno: Tema.acento;
+    height: 10px;
+    border-radius: 5px;
+    background: Tema.rejilla;
+    accessible-role: progress-indicator;
+    accessible-value: round(valor) + " %";
+    Rectangle {
+        x: 0;
+        width: parent.width * clamp(root.valor, 0, 100) / 100;
+        height: parent.height;
+        border-radius: parent.border-radius;
+        background: root.relleno;
+        animate width { duration: Tema.rapido; }
+    }
+}
+
+export component Etiqueta inherits Text {
+    color: Tema.texto-3;
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: 0.75px;
+}
+
+export component Ayuda inherits Text {
+    color: Tema.texto-3;
+    font-size: 13.5px;
+    wrap: word-wrap;
+}
+
+export component Titulo inherits Text {
+    color: Tema.texto;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+export component Separador inherits Rectangle {
+    height: 1px;
+    background: Tema.borde-suave;
+}
+
+export component Paginador inherits HorizontalLayout {
+    in property <Pagina> pagina;
+    in property <int> tam-indice;
+    // En columnas estrechas: sin el texto "Por página" y con flechas solas.
+    in property <bool> compacto;
+    callback anterior();
+    callback siguiente();
+    callback cambiar-tam(int);
+    spacing: 14px;
+    padding-top: 14px;
+    visible: pagina.cantidad > 0;
+    Text {
+        text: pagina.desde + "–" + pagina.hasta + " de " + pagina.cantidad;
+        color: Tema.texto-2;
+        font-weight: 650;
+        vertical-alignment: center;
+        accessible-role: text;
+    }
+    if !root.compacto: Text {
+        text: "Por página";
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 13.5px;
+        vertical-alignment: center;
+    }
+    Selector {
+        width: 76px;
+        height: 34px;
+        etiqueta: "Elementos por página";
+        opciones: ["10", "25", "50"];
+        indice: root.tam-indice;
+        cambiado(i) => {
+            root.cambiar-tam(i);
+        }
+    }
+    Rectangle {
+        horizontal-stretch: 1;
+    }
+    Boton {
+        texto: "Anterior";
+        solo-icono: root.compacto;
+        icono: Iconos.anterior;
+        habilitado: root.pagina.anterior;
+        etiqueta-accesible: "Página anterior";
+        clicked => {
+            root.anterior();
+        }
+    }
+    Boton {
+        texto: "Siguiente";
+        solo-icono: root.compacto;
+        icono: Iconos.siguiente;
+        habilitado: root.pagina.siguiente;
+        etiqueta-accesible: "Página siguiente";
+        clicked => {
+            root.siguiente();
+        }
+    }
+}
+
+component FilaGasto inherits Rectangle {
+    in property <Fila> fila;
+    in property <bool> con-mes;
+    callback abrir(int);
+    min-height: 58px;
+    background: ta.has-hover || fs.has-focus ? Tema.vidrio-hundido : transparent;
+    accessible-role: button;
+    accessible-label: "Editar " + fila.titulo + ", " + fila.monto + ", " + fila.estado;
+    accessible-action-default => {
+        abrir(fila.id);
+    }
+    forward-focus: fs;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 12px;
+        if con-mes: Text {
+            width: 22%;
+            text: fila.periodo;
+            color: Tema.texto;
+            font-size: 14.5px;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: fila.titulo;
+                color: Tema.texto;
+                font-size: 14.5px;
+                overflow: elide;
+            }
+            if fila.etiquetas.length > 0: HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                for e in fila.etiquetas: Chip {
+                    texto: e;
+                }
+            }
+        }
+        VerticalLayout {
+            width: 150px;
+            alignment: center;
+            HorizontalLayout {
+                alignment: start;
+                EstadoChip {
+                    texto: fila.estado;
+                    tipo: fila.tipo;
+                }
+            }
+        }
+        Text {
+            width: 150px;
+            text: fila.monto;
+            color: fila.negativo ? Tema.negativo : Tema.texto;
+            font-size: 14.5px;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+    }
+    Separador {
+        y: parent.height - 1px;
+        width: parent.width;
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.abrir(root.fila.id);
+                return accept;
+            }
+            reject
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            root.abrir(root.fila.id);
+        }
+    }
+}
+
+export component TablaGastos inherits VerticalLayout {
+    in property <[Fila]> filas;
+    in property <bool> con-mes: true;
+    in property <string> total;
+    callback abrir(int);
+    if filas.length == 0: Ayuda {
+        text: "No hay gastos.";
+    }
+    if filas.length > 0: HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-bottom: 8px;
+        spacing: 12px;
+        if root.con-mes: Etiqueta {
+            width: 22%;
+            text: "MES";
+        }
+        Etiqueta {
+            horizontal-stretch: 1;
+            text: "CONCEPTO";
+        }
+        Etiqueta {
+            width: 150px;
+            text: "ESTADO";
+        }
+        Etiqueta {
+            width: 150px;
+            text: "MONTO";
+            horizontal-alignment: right;
+        }
+    }
+    if filas.length > 0: Separador { }
+    for f in filas: FilaGasto {
+        fila: f;
+        con-mes: root.con-mes;
+        abrir(id) => {
+            root.abrir(id);
+        }
+    }
+    if total != "" && filas.length > 0: HorizontalLayout {
+        padding: 10px;
+        Text {
+            text: "Total del mes";
+            color: Tema.texto;
+            font-weight: 700;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: root.total;
+            color: Tema.texto;
+            font-weight: 700;
+        }
+    }
+}

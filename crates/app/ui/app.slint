@@ -1,0 +1,285 @@
+import { Tema } from "tema.slint";
+import { App, Util, TableroD, ResumenD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar, Aviso } from "estado.slint";
+import { Vidrio, Boton, Icono, Iconos } from "componentes.slint";
+import { PantallaTablero } from "pantallas/tablero.slint";
+import { PantallaResumen } from "pantallas/resumen.slint";
+import { PantallaMovimientos } from "pantallas/movimientos.slint";
+import { PantallaDeudas, PantallaTarjetas } from "pantallas/deudas.slint";
+import { PantallaCatalogos, PantallaDatos, PantallaAjustes } from "pantallas/otras.slint";
+import { Dialogo, DialogoConfirmar, Avisos } from "dialogos.slint";
+
+export { Tema, App, Util, TableroD, ResumenD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
+
+component Fondo inherits Rectangle {
+    background: Tema.fondo;
+    property <bool> manchas: !Tema.solido;
+    if manchas: Rectangle {
+        x: -root.width * 0.2;
+        y: -root.width * 0.24;
+        width: root.width * 0.7;
+        height: self.width;
+        background: @radial-gradient(circle, Tema.mancha-1 0%, Tema.mancha-1.transparentize(0.6) 35%, transparent 70%);
+    }
+    if manchas: Rectangle {
+        x: root.width * 0.62;
+        y: root.height * 0.0;
+        width: root.width * 0.55;
+        height: self.width;
+        background: @radial-gradient(circle, Tema.mancha-2.transparentize(0.25) 0%, Tema.mancha-2.transparentize(0.7) 35%, transparent 70%);
+    }
+    if manchas: Rectangle {
+        x: root.width * 0.45;
+        y: root.height - root.width * 0.22;
+        width: root.width * 0.48;
+        height: self.width;
+        background: @radial-gradient(circle, Tema.mancha-3.transparentize(0.4) 0%, Tema.mancha-3.transparentize(0.75) 35%, transparent 70%);
+    }
+    if manchas: Rectangle {
+        x: root.width * 0.1;
+        y: root.height - root.width * 0.2;
+        width: root.width * 0.42;
+        height: self.width;
+        background: @radial-gradient(circle, Tema.mancha-4.transparentize(0.35) 0%, Tema.mancha-4.transparentize(0.75) 35%, transparent 70%);
+    }
+}
+
+component ItemMenu inherits Rectangle {
+    in property <string> texto;
+    in property <string> icono;
+    in property <string> atajo;
+    in property <bool> actual;
+    callback activado();
+    height: 44px;
+    border-radius: Tema.radio-m;
+    background: actual ? Tema.acento-suave : (ta.has-hover ? Tema.vidrio-hundido : transparent);
+    border-width: actual ? 1px : 0px;
+    border-color: Tema.borde-suave;
+    accessible-role: tab;
+    accessible-label: texto;
+    accessible-checked: actual;
+    accessible-action-default => {
+        activado();
+    }
+    forward-focus: fs;
+    animate background { duration: Tema.rapido; }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 10px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Icono {
+                width: 20px;
+                height: 20px;
+                d: icono;
+                color: actual ? Tema.acento : Tema.texto-2;
+                grosor: 1.8px;
+            }
+        }
+        Text {
+            text: texto;
+            color: actual ? Tema.texto : Tema.texto-2;
+            font-weight: 600;
+            font-size: 15px;
+            vertical-alignment: center;
+            wrap: word-wrap;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                height: 20px;
+                width: kbd.preferred-width + 10px;
+                border-radius: 6px;
+                border-width: 1px;
+                border-color: Tema.borde-suave;
+                kbd := Text {
+                    text: atajo;
+                    color: Tema.texto-3;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.activado();
+                return accept;
+            }
+            reject
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.activado();
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: parent.border-radius + 3px;
+        border-width: fs.has-focus ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+export component Ventana inherits Window {
+    title: "Sueldapp";
+    icon: @image-url("../icons/128x128@2x.png");
+    preferred-width: 1280px;
+    preferred-height: 840px;
+    min-width: 900px;
+    min-height: 600px;
+    background: Tema.fondo;
+    default-font-size: 15px;
+    property <[string]> nombres: ["Tablero", "Resumen", "Movimientos", "Deudas", "Tarjetas", "Catálogos", "Importar y exportar", "Ajustes"];
+    property <[string]> iconos: [Iconos.tablero, Iconos.resumen, Iconos.movimientos, Iconos.deudas, Iconos.tarjetas, Iconos.catalogos, Iconos.datos, Iconos.ajustes];
+
+    forward-focus: atajos;
+    atajos := FocusScope {
+        key-pressed(e) => {
+            if e.modifiers.alt {
+                if e.text >= "1" && e.text <= "8" {
+                    App.navegar(e.text.to-float() - 1);
+                    return accept;
+                }
+                if App.vista == 1 && e.text == Key.LeftArrow {
+                    ResumenD.mover(-1);
+                    return accept;
+                }
+                if App.vista == 1 && e.text == Key.RightArrow {
+                    ResumenD.mover(1);
+                    return accept;
+                }
+            }
+            reject
+        }
+
+        Fondo { }
+
+        HorizontalLayout {
+            padding: 18px;
+            spacing: 18px;
+            Vidrio {
+                width: 248px;
+                VerticalLayout {
+                    padding: 12px;
+                    padding-top: 18px;
+                    spacing: 4px;
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-bottom: 14px;
+                        spacing: 10px;
+                        Rectangle {
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 8px;
+                            background: Tema.acento;
+                            for h[i] in [6, 9, 12]: Rectangle {
+                                x: (5 + i * 5) * 1px;
+                                y: (24 - h) * 1px;
+                                width: 3.4px;
+                                height: h * 1px;
+                                border-radius: 1px;
+                                background: Tema.acento-texto;
+                            }
+                            Rectangle {
+                                x: 17px;
+                                y: 4px;
+                                width: 10px;
+                                height: 10px;
+                                border-radius: 5px;
+                                background: Tema.moneda;
+                                border-width: 1.2px;
+                                border-color: Tema.acento-texto;
+                            }
+                        }
+                        Text {
+                            text: "Sueldapp";
+                            color: Tema.texto;
+                            font-size: 18px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+                    }
+                    for n[i] in root.nombres: ItemMenu {
+                        texto: n;
+                        icono: root.iconos[i];
+                        atajo: "Alt " + (i + 1);
+                        actual: App.vista == i;
+                        activado => {
+                            App.navegar(i);
+                        }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+                    if App.demo: Rectangle {
+                        height: 34px;
+                        border-radius: Tema.radio-s;
+                        background: Tema.aviso-suave;
+                        Text {
+                            x: 10px;
+                            text: "Datos de demostración";
+                            color: Tema.aviso;
+                            font-weight: 600;
+                            font-size: 13px;
+                            vertical-alignment: center;
+                            height: parent.height;
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+                if App.vista == 0: PantallaTablero {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 1: PantallaResumen {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 2: PantallaMovimientos {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 3: PantallaDeudas {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 4: PantallaTarjetas {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 5: PantallaCatalogos {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 6: PantallaDatos {
+                    width: parent.width;
+                    height: parent.height;
+                }
+                if App.vista == 7: PantallaAjustes {
+                    width: parent.width;
+                    height: parent.height;
+                }
+            }
+        }
+
+        if Form.tipo != 0: Dialogo { }
+        if Confirmar.visible: DialogoConfirmar { }
+        Avisos {
+            x: root.width - self.width - 22px;
+            y: root.height - self.height - 22px;
+            width: 480px;
+            height: self.preferred-height;
+        }
+    }
+}

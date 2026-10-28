@@ -14,7 +14,8 @@ description = "Finanzas personales de escritorio, locales y privadas: sueldo, ga
 rust-version = "1.95"
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# "deny" (no "forbid"): el código que genera Slint permite unsafe localmente; el nuestro no puede.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 float_arithmetic = "deny"

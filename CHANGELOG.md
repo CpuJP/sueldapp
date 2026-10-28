@@ -6,6 +6,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Cambiado
+
+- La interfaz ahora es nativa (Slint) en lugar de WebKit: mismo diseño, cuatro a cinco veces menos
+  memoria (unos 40–50 MiB en lugar de ~210) y un solo proceso. Ver la ADR 0006.
+- Los instaladores ya no dependen de WebKitGTK.
+- Ajustes muestra la atribución «Hecho con Slint».
+
 ## [0.1.0-alpha.2] - 2026-10-28
 
 ### Cambiado

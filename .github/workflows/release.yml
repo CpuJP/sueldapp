@@ -1,7 +1,7 @@
 name: Release
 
 # Publica instaladores al empujar una etiqueta vX.Y.Z (o vX.Y.Z-alpha.N).
-# La versión de crates/app/tauri.conf.json debe coincidir con X.Y.Z.
+# La versión de [workspace.package] en Cargo.toml debe coincidir con X.Y.Z.
 on:
   push:
     tags: ["v*"]
@@ -16,7 +16,6 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  TAURI_CLI: "@tauri-apps/cli@2.12.2"
 
 jobs:
   preparar:
@@ -36,9 +35,9 @@ jobs:
           etiqueta="${{ github.event.inputs.etiqueta || github.ref_name }}"
           version="${etiqueta#v}"
           base="${version%%-*}"
-          app=$(python3 -c "import json; print(json.load(open('crates/app/tauri.conf.json'))['version'])")
+          app=$(python3 -c "import tomllib; print(tomllib.load(open('Cargo.toml','rb'))['workspace']['package']['version'])")
           if [ "$app" != "$base" ]; then
-            echo "::error::La etiqueta $etiqueta no coincide con la versión $app de tauri.conf.json"
+            echo "::error::La etiqueta $etiqueta no coincide con la versión $app de Cargo.toml"
             exit 1
           fi
           echo "etiqueta=$etiqueta" >> "$GITHUB_OUTPUT"
@@ -65,13 +64,13 @@ jobs:
         include:
           - nombre: Linux x64
             os: ubuntu-22.04
-            paquetes: deb,rpm,appimage
+            paquetes: deb,appimage
           - nombre: Linux ARM64
             os: ubuntu-22.04-arm
-            paquetes: deb,rpm
+            paquetes: deb
           - nombre: Windows x64
             os: windows-latest
-            paquetes: nsis,msi
+            paquetes: nsis,wix
           - nombre: Windows ARM64
             os: windows-11-arm
             paquetes: nsis
@@ -81,24 +80,29 @@ jobs:
         with:
           ref: ${{ needs.preparar.outputs.etiqueta }}
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Dependencias de sistema (WebKitGTK)
+      - name: Dependencias de sistema (fuentes y teclado)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf file
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev file
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-packager,cargo-generate-rpm
       - name: Construir instaladores
-        working-directory: crates/app
         shell: bash
-        run: npx --yes "$TAURI_CLI" build --bundles ${{ matrix.paquetes }}
+        # NO_STRIP: el strip de linuxdeploy no entiende algunas bibliotecas recientes.
+        env:
+          NO_STRIP: "true"
+        run: cargo packager --release -p sueldapp -f ${{ matrix.paquetes }}
+      - name: Construir rpm
+        if: runner.os == 'Linux'
+        run: cargo generate-rpm -p crates/app
       - name: Reunir instaladores
         shell: bash
         run: |
           mkdir -p dist
-          find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*-setup.exe' \) -exec cp {} dist/ \;
+          find target/paquetes target/generate-rpm -maxdepth 1 -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*-setup.exe' \) -exec cp {} dist/ \; 2>/dev/null || true
           ls -la dist
       - uses: actions/upload-artifact@v7
         with:

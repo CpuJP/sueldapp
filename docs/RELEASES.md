@@ -16,12 +16,12 @@ Cada instalador se construye de forma nativa en su arquitectura (runners de GitH
 
 [SemVer](https://semver.org/lang/es/): `MAJOR.MINOR.PATCH`. Las preversiones llevan sufijo
 (`v0.1.0-alpha.1`, `v0.2.0-beta.1`) y se publican como *pre-release*. La versión de
-`crates/app/tauri.conf.json` y de `Cargo.toml` es la parte numérica (`0.1.0`); el instalador MSI de
-Windows no admite sufijos.
+`Cargo.toml` (`[workspace.package]`) es la parte numérica (`0.1.0`); el instalador MSI de Windows no
+admite sufijos.
 
 ## Pasos
 
-1. Actualiza la versión en `Cargo.toml` (`[workspace.package]`) y en `crates/app/tauri.conf.json`.
+1. Actualiza la versión en `Cargo.toml` (`[workspace.package]`).
 2. Mueve lo de "Sin publicar" de `CHANGELOG.md` a una sección nueva con la versión y la fecha.
 3. Commit: `chore: versión 0.2.0`.
 4. Etiqueta y empuja:
@@ -34,6 +34,18 @@ Windows no admite sufijos.
 6. Revisa el borrador, prueba los instaladores y pulsa **Publish release**.
 
 Para reconstruir una etiqueta existente: Actions → Release → *Run workflow* → indica la etiqueta.
+
+## Herramientas
+
+`cargo-packager` genera `.deb`, `.AppImage`, NSIS y MSI con la configuración de
+`[package.metadata.packager]` en `crates/app/Cargo.toml`; `cargo-generate-rpm` genera el `.rpm`
+(`[package.metadata.generate-rpm]`). En local:
+
+```bash
+cargo install cargo-packager cargo-generate-rpm
+NO_STRIP=true cargo packager --release -p sueldapp -f deb,appimage   # salida en target/paquetes/
+cargo generate-rpm -p crates/app                                     # salida en target/generate-rpm/
+```
 
 ## Firma de código
 

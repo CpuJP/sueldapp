@@ -1,0 +1,413 @@
+import { Tema } from "../tema.slint";
+import { DeudasD, TarjetasD, App, DeudaFila, TarjetaFila } from "../estado.slint";
+import { Boton, Iconos, Progreso, Separador, Ayuda, Titulo, TablaGastos, Paginador, Chip } from "../componentes.slint";
+import { Encabezado, Desplazable, Panel } from "comun.slint";
+
+component Dato inherits HorizontalLayout {
+    in property <string> etiqueta;
+    in property <string> valor;
+    in property <bool> negativo;
+    spacing: 4px;
+    Text {
+        text: root.etiqueta;
+        color: Tema.texto-2;
+        font-size: 13.5px;
+    }
+    Text {
+        text: root.valor;
+        color: root.negativo ? Tema.negativo : Tema.texto;
+        font-size: 13.5px;
+        font-weight: 700;
+    }
+}
+
+component Desplegar inherits Rectangle {
+    in property <string> texto;
+    in property <bool> abierta;
+    callback alternar();
+    height: 28px;
+    width: t.preferred-width + 26px;
+    border-radius: 6px;
+    accessible-role: button;
+    accessible-label: texto;
+    accessible-expandable: true;
+    accessible-expanded: abierta;
+    accessible-action-default => {
+        alternar();
+    }
+    forward-focus: fs;
+    Text {
+        x: 0;
+        text: root.abierta ? "▼" : "▶";
+        color: Tema.texto-2;
+        font-size: 11px;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    t := Text {
+        x: 18px;
+        text: root.texto;
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 13.5px;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" {
+                root.alternar();
+                return accept;
+            }
+            reject
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            fs.focus();
+            root.alternar();
+        }
+    }
+    Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 9px;
+        border-width: fs.has-focus ? 3px : 0px;
+        border-color: Tema.acento;
+    }
+}
+
+component FilaDeuda inherits VerticalLayout {
+    in property <DeudaFila> d;
+    spacing: 8px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+    HorizontalLayout {
+        spacing: 20px;
+        VerticalLayout {
+            width: 30%;
+            alignment: center;
+            spacing: 4px;
+            Text {
+                text: root.d.nombre;
+                color: Tema.texto;
+                font-size: 16px;
+                font-weight: 700;
+                accessible-role: text;
+            }
+            if root.d.saldada: HorizontalLayout {
+                alignment: start;
+                Chip {
+                    texto: "Saldada";
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            horizontal-stretch: 1;
+            if root.d.tiene-progreso: Progreso {
+                valor: root.d.progreso;
+            }
+            Ayuda {
+                text: root.d.tiene-progreso ? root.d.progreso-texto : "Añade el total para ver el progreso.";
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Boton {
+                solo-icono: true;
+                icono: Iconos.lapiz;
+                etiqueta-accesible: "Editar deuda " + root.d.nombre;
+                clicked => {
+                    DeudasD.editar(root.d.id);
+                }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 22px;
+        alignment: start;
+        Dato {
+            etiqueta: "Pagado:";
+            valor: root.d.pagado + (root.d.total != "" ? " de " + root.d.total : "");
+        }
+        Text {
+            text: root.d.pendiente;
+            color: Tema.texto-2;
+            font-size: 13.5px;
+        }
+        Dato {
+            etiqueta: "Cuotas pagadas:";
+            valor: root.d.cuotas;
+        }
+        Dato {
+            etiqueta: "Fin estimado:";
+            valor: root.d.fin;
+        }
+    }
+    Desplegar {
+        texto: "Ver cuotas (" + root.d.num + ")";
+        abierta: root.d.abierta;
+        alternar => {
+            DeudasD.alternar(root.d.id);
+        }
+    }
+    if root.d.abierta: VerticalLayout {
+        spacing: 6px;
+        TablaGastos {
+            filas: root.d.filas;
+            con-mes: true;
+            abrir(id) => {
+                App.abrir-gasto(id);
+            }
+        }
+        Paginador {
+            pagina: root.d.pagina;
+            tam-indice: App.tam-pagina;
+            anterior => {
+                DeudasD.paginar-cuotas(root.d.id, false);
+            }
+            siguiente => {
+                DeudasD.paginar-cuotas(root.d.id, true);
+            }
+            cambiar-tam(i) => {
+                App.cambiar-tam(i);
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            Boton {
+                texto: "Añadir cuota";
+                icono: Iconos.mas;
+                clicked => {
+                    DeudasD.nueva-cuota(root.d.id);
+                }
+            }
+        }
+    }
+    Separador { }
+}
+
+export component PantallaDeudas inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Deudas";
+        Boton {
+            texto: "Nueva deuda";
+            icono: Iconos.mas;
+            primario: true;
+            clicked => {
+                DeudasD.nueva();
+            }
+        }
+    }
+    Desplazable {
+        Panel {
+            Titulo {
+                text: "En curso (" + DeudasD.num-activas + ")";
+            }
+            if DeudasD.activas.length == 0: Ayuda {
+                text: "Ninguna.";
+            }
+            for d in DeudasD.activas: FilaDeuda {
+                d: d;
+            }
+            Paginador {
+                pagina: DeudasD.pag-activas;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    DeudasD.paginar("activas", false);
+                }
+                siguiente => {
+                    DeudasD.paginar("activas", true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Saldadas (" + DeudasD.num-saldadas + ")";
+            }
+            if DeudasD.saldadas.length == 0: Ayuda {
+                text: "Ninguna.";
+            }
+            for d in DeudasD.saldadas: FilaDeuda {
+                d: d;
+            }
+            Paginador {
+                pagina: DeudasD.pag-saldadas;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    DeudasD.paginar("saldadas", false);
+                }
+                siguiente => {
+                    DeudasD.paginar("saldadas", true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+    }
+}
+
+component FilaTarjeta inherits VerticalLayout {
+    in property <TarjetaFila> t;
+    spacing: 8px;
+    padding-top: 16px;
+    padding-bottom: 12px;
+    HorizontalLayout {
+        spacing: 20px;
+        VerticalLayout {
+            width: 30%;
+            alignment: center;
+            spacing: 2px;
+            Text {
+                text: root.t.nombre;
+                color: Tema.texto;
+                font-size: 16px;
+                font-weight: 700;
+            }
+            Ayuda {
+                text: root.t.registrados;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            horizontal-stretch: 1;
+            if root.t.tiene-uso: Progreso {
+                valor: root.t.uso;
+                relleno: Tema.aviso;
+            }
+            Ayuda {
+                text: root.t.tiene-uso ? root.t.uso-texto : "Añade cupo y saldo para ver el uso.";
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            Boton {
+                solo-icono: true;
+                icono: Iconos.lapiz;
+                etiqueta-accesible: "Editar tarjeta " + root.t.nombre;
+                clicked => {
+                    TarjetasD.editar(root.t.id);
+                }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 22px;
+        alignment: start;
+        Dato {
+            etiqueta: "Cupo:";
+            valor: root.t.cupo;
+        }
+        Dato {
+            etiqueta: "Saldo:";
+            valor: root.t.saldo;
+        }
+        Dato {
+            etiqueta: "Disponible:";
+            valor: root.t.disponible;
+            negativo: root.t.disponible-negativo;
+        }
+        Dato {
+            etiqueta: "Corte:";
+            valor: root.t.corte;
+        }
+        Dato {
+            etiqueta: "Pago:";
+            valor: root.t.pago;
+        }
+        Dato {
+            etiqueta: "Total pagado:";
+            valor: root.t.total-pagado;
+        }
+    }
+    Desplegar {
+        texto: "Ver pagos (" + root.t.num + ")";
+        abierta: root.t.abierta;
+        alternar => {
+            TarjetasD.alternar(root.t.id);
+        }
+    }
+    if root.t.abierta: VerticalLayout {
+        spacing: 6px;
+        TablaGastos {
+            filas: root.t.filas;
+            con-mes: true;
+            abrir(id) => {
+                App.abrir-gasto(id);
+            }
+        }
+        Paginador {
+            pagina: root.t.pagina;
+            tam-indice: App.tam-pagina;
+            anterior => {
+                TarjetasD.paginar-pagos(root.t.id, false);
+            }
+            siguiente => {
+                TarjetasD.paginar-pagos(root.t.id, true);
+            }
+            cambiar-tam(i) => {
+                App.cambiar-tam(i);
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            Boton {
+                texto: "Añadir pago";
+                icono: Iconos.mas;
+                clicked => {
+                    TarjetasD.nuevo-pago(root.t.id);
+                }
+            }
+        }
+    }
+    Separador { }
+}
+
+export component PantallaTarjetas inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Tarjetas de crédito";
+        Boton {
+            texto: "Nueva tarjeta";
+            icono: Iconos.mas;
+            primario: true;
+            clicked => {
+                TarjetasD.nueva();
+            }
+        }
+    }
+    Desplazable {
+        Panel {
+            if TarjetasD.tarjetas.length == 0: Ayuda {
+                text: "No hay tarjetas. Crea una tarjeta de crédito para seguir sus pagos.";
+            }
+            for t in TarjetasD.tarjetas: FilaTarjeta {
+                t: t;
+            }
+            Paginador {
+                pagina: TarjetasD.pagina;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    TarjetasD.paginar(false);
+                }
+                siguiente => {
+                    TarjetasD.paginar(true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+    }
+}

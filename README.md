@@ -91,18 +91,19 @@ Allí también puedes poner `reglas.txt` con tus reglas de categorías y tarjeta
 
 ## Compilar desde el código
 
-Requisitos: [Rust estable](https://rustup.rs) y, en Linux, WebKitGTK 4.1:
+Requisitos: [Rust estable](https://rustup.rs) y, en Linux, fontconfig y xkbcommon:
 
 ```bash
 # Fedora
-sudo dnf install webkit2gtk4.1-devel libsoup3-devel gtk3-devel
+sudo dnf install fontconfig-devel libxkbcommon-devel
 # Debian/Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
+sudo apt install libfontconfig1-dev libxkbcommon-dev
 
 git clone https://github.com/CpuJP/sueldapp.git && cd sueldapp
 cargo run --release -p sueldapp                       # abre la app
 SUELDAPP_SIN_ODS=1 cargo test --workspace             # pruebas
-(cd crates/app && npx @tauri-apps/cli@2.12.2 build)  # instaladores
+cargo install cargo-packager cargo-generate-rpm       # una vez
+cargo packager --release -p sueldapp                  # instaladores (ver docs/RELEASES.md)
 ```
 
 Modo demostración con datos ficticios:
@@ -110,15 +111,15 @@ Modo demostración con datos ficticios:
 
 ## Arquitectura
 
-Núcleo en Rust (workspace de 4 crates) e interfaz [Tauri 2](https://tauri.app) en HTML/CSS/JS sin
-frameworks ni bundler.
+Núcleo en Rust (workspace de 4 crates) e interfaz nativa con [Slint](https://slint.dev): un solo
+proceso, sin motor web, unos 40–50 MiB de memoria.
 
 | Crate | Qué hace |
 |---|---|
 | `dominio` | Reglas de negocio y cálculos de dinero (sin IO), estadísticas, paginación |
 | `almacen` | SQLite con migraciones versionadas |
 | `ods` | Lector/escritor `.ods` propio, importador con conciliación, plantilla, CSV |
-| `app` | Comandos Tauri e interfaz |
+| `app` | Interfaz Slint (`ui/*.slint`) y vistas que la conectan con el núcleo |
 
 Más en [`docs/arquitectura.md`](docs/arquitectura.md) y en las [decisiones](docs/decisiones/).
 El proyecto se desarrolla con [Spec Kit](https://github.com/github/spec-kit) (`specs/`).
@@ -135,6 +136,11 @@ El proyecto se desarrolla con [Spec Kit](https://github.com/github/spec-kit) (`s
 
 [MIT](LICENSE) © 2026 Juan Pablo Giraldo Collazos.
 
+La interfaz está hecha con [Slint](https://slint.dev) bajo su licencia
+[Royalty-free 2.0](https://slint.dev/terms-and-conditions#royalty-free).
+
+[![Hecho con Slint](https://raw.githubusercontent.com/slint-ui/slint/master/logo/MadeWithSlint-logo-light.svg)](https://slint.dev)
+
 ---
 
 ## English
@@ -142,6 +148,6 @@ El proyecto se desarrolla con [Spec Kit](https://github.com/github/spec-kit) (`s
 **Sueldapp** is a local-first, private desktop app for personal finances (salary, monthly expenses,
 installment debts and credit cards) with a statistics dashboard. It imports a specific spreadsheet
 layout with exact reconciliation, offers a fill-in template, and exports to `.ods`/`.csv`. Built with
-Rust and Tauri 2; no network access at runtime; exact decimal money. Installers for Linux and Windows
+Rust and a native [Slint](https://slint.dev) UI; no network access at runtime; exact decimal money. Installers for Linux and Windows
 on x64 and ARM64 are available in [Releases](https://github.com/CpuJP/sueldapp/releases).
 The UI and docs are in Spanish. MIT licensed.

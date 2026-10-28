@@ -1,0 +1,191 @@
+import { ScrollView } from "std-widgets.slint";
+import { Tema } from "../tema.slint";
+import { Cifra, FilaTabla } from "../estado.slint";
+import { Vidrio, Etiqueta, Ayuda, Separador } from "../componentes.slint";
+
+// Pantalla: barra de título fija con acciones (@children de la barra) y contenido desplazable.
+export component Encabezado inherits Vidrio {
+    in property <string> titulo;
+    height: 64px;
+    HorizontalLayout {
+        padding-left: 22px;
+        padding-right: 14px;
+        spacing: 10px;
+        Text {
+            text: root.titulo;
+            color: Tema.texto;
+            font-size: 22px;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            accessible-role: text;
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: end;
+            padding-top: 13px;
+            padding-bottom: 13px;
+            @children
+        }
+    }
+}
+
+export component Desplazable inherits ScrollView {
+    in property <length> separacion: 18px;
+    content-width: self.visible-width;
+    content-height: contenido.preferred-height + 24px;
+    contenido := VerticalLayout {
+        width: root.visible-width - 2px;
+        spacing: root.separacion;
+        padding-bottom: 24px;
+        @children
+    }
+}
+
+export component Panel inherits Vidrio {
+    in property <length> relleno: 22px;
+    VerticalLayout {
+        padding: root.relleno;
+        spacing: 10px;
+        alignment: start;
+        @children
+    }
+}
+
+export component Cifras inherits GridLayout {
+    in property <[Cifra]> cifras;
+    in property <int> columnas: 2;
+    spacing: 0px;
+    for c[i] in cifras: Rectangle {
+        col: mod(i, root.columnas);
+        row: floor(i / root.columnas);
+        min-height: 72px;
+        Rectangle {
+            x: 0;
+            width: 1px;
+            height: parent.height;
+            background: Tema.borde-suave;
+            visible: mod(i, root.columnas) != 0 || root.columnas == 2;
+        }
+        Rectangle {
+            y: 0;
+            width: parent.width;
+            height: 1px;
+            background: Tema.borde-suave;
+            visible: i >= root.columnas;
+        }
+        VerticalLayout {
+            padding-left: 16px;
+            padding-right: 12px;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            spacing: 2px;
+            accessible-role: text;
+            accessible-label: c.etiqueta + ": " + c.valor + " " + c.nota;
+            Text {
+                text: c.etiqueta;
+                color: Tema.texto-3;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            Text {
+                text: c.valor;
+                color: c.negativo ? Tema.negativo : Tema.texto;
+                font-size: 21px;
+                font-weight: 650;
+                overflow: elide;
+            }
+            if c.nota != "": Ayuda {
+                text: c.nota;
+            }
+        }
+    }
+}
+
+// Tarjeta principal: cifra grande a la izquierda, cuadrícula de cifras a la derecha.
+export component Heroe inherits Vidrio {
+    in property <string> etiqueta;
+    in property <string> valor;
+    in property <bool> negativo;
+    in property <string> nota;
+    in property <[Cifra]> cifras;
+    HorizontalLayout {
+        padding: 22px;
+        spacing: 28px;
+        VerticalLayout {
+            width: 40%;
+            alignment: center;
+            spacing: 6px;
+            Etiqueta {
+                text: root.etiqueta;
+            }
+            Text {
+                text: root.valor;
+                color: root.negativo ? Tema.negativo : Tema.texto;
+                font-size: 44px;
+                font-weight: 700;
+                letter-spacing: -0.9px;
+                wrap: word-wrap;
+                accessible-role: text;
+                accessible-label: root.etiqueta + ": " + root.valor;
+            }
+            Ayuda {
+                text: root.nota;
+            }
+            @children
+        }
+        VerticalLayout {
+            alignment: center;
+            Cifras {
+                cifras: root.cifras;
+            }
+        }
+    }
+}
+
+// Tabla simple de texto (columnas iguales; la primera alineada a la izquierda).
+export component TablaTexto inherits VerticalLayout {
+    in property <[string]> encabezados;
+    in property <[FilaTabla]> filas;
+    callback fila-activada(int);
+    in property <bool> activable;
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 8px;
+        for e[i] in root.encabezados: Etiqueta {
+            text: e;
+            width: (root.width - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1) * (i == 0 ? 2 : 1);
+            horizontal-alignment: i == 0 ? left : right;
+        }
+    }
+    Separador { }
+    for f[j] in root.filas: Rectangle {
+        min-height: 40px;
+        background: ta.has-hover && root.activable ? Tema.vidrio-hundido : transparent;
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            spacing: 8px;
+            for c[i] in f.c: Text {
+                text: c;
+                color: f.negativos.length > i && f.negativos[i] ? Tema.negativo : Tema.texto;
+                font-size: 14px;
+                vertical-alignment: center;
+                width: (root.width - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1) * (i == 0 ? 2 : 1);
+                horizontal-alignment: i == 0 ? left : right;
+                overflow: elide;
+            }
+        }
+        Separador {
+            y: parent.height - 1px;
+            width: parent.width;
+        }
+        ta := TouchArea {
+            enabled: root.activable;
+            mouse-cursor: root.activable ? pointer : default;
+            clicked => {
+                root.fila-activada(j);
+            }
+        }
+    }
+}

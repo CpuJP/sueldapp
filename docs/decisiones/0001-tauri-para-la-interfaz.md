@@ -1,6 +1,6 @@
 # ADR 0001 — Tauri 2 con HTML/CSS/JS plano para la interfaz
 
-- Estado: aceptada (2026-10-28, aprobada por el usuario)
+- Estado: reemplazada por la [ADR 0006](0006-slint-para-la-interfaz.md) (2026-10-28)
 
 ## Contexto
 

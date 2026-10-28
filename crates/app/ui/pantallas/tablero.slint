@@ -1,0 +1,553 @@
+import { Tema } from "../tema.slint";
+import { TableroD, App, Linea } from "../estado.slint";
+import { Vidrio, Boton, Icono, Iconos, Etiqueta, Ayuda, Titulo, Progreso, Separador } from "../componentes.slint";
+import { Grafico, BarrasH } from "../graficos.slint";
+import { Encabezado, Desplazable, Panel, Cifras, Heroe, TablaTexto } from "comun.slint";
+
+component Calendario inherits Rectangle {
+    // La ventana emergente crea el calendario al abrirse: parte del periodo actual.
+    in-out property <int> inicio: TableroD.desde;
+    in-out property <int> fin: TableroD.hasta;
+    in-out property <int> previa: -1;
+    in-out property <int> anio-vista: floor(TableroD.hasta / 12);
+    callback cerrar();
+    property <int> a0: fin >= 0 ? min(inicio, fin) : (previa >= 0 ? min(inicio, previa) : inicio);
+    property <int> a1: fin >= 0 ? max(inicio, fin) : (previa >= 0 ? max(inicio, previa) : inicio);
+    property <[string]> cortos: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    property <[string]> largos: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    width: 500px;
+    height: 420px;
+    border-radius: Tema.radio-l;
+    background: Tema.oscuro ? #182124 : #f6f9f9;
+    border-width: 1px;
+    border-color: Tema.vidrio-borde;
+    drop-shadow-blur: 30px;
+    drop-shadow-offset-y: 12px;
+    drop-shadow-color: Tema.sombra.transparentize(0.4);
+    clip: true;
+    accessible-role: groupbox;
+    accessible-label: "Elegir periodo";
+    HorizontalLayout {
+        Rectangle {
+            width: 190px;
+            background: Tema.vidrio-hundido;
+            VerticalLayout {
+                padding: 10px;
+                spacing: 2px;
+                alignment: start;
+                for p[i] in TableroD.presets: Rectangle {
+                    height: 36px;
+                    border-radius: Tema.radio-s;
+                    background: TableroD.preset-activo == i ? Tema.acento-suave : (tp.has-hover ? Tema.vidrio-fuerte : transparent);
+                    accessible-role: button;
+                    accessible-label: p.nombre;
+                    accessible-action-default => {
+                        TableroD.aplicar-preset(i);
+                        root.cerrar();
+                    }
+                    Text {
+                        x: 12px;
+                        text: p.nombre;
+                        color: TableroD.preset-activo == i ? Tema.texto : Tema.texto-2;
+                        font-weight: 550;
+                        font-size: 14px;
+                        vertical-alignment: center;
+                        height: parent.height;
+                    }
+                    tp := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            TableroD.aplicar-preset(i);
+                            root.cerrar();
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Tema.borde-suave;
+            }
+        }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+            HorizontalLayout {
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.anterior;
+                    etiqueta-accesible: "Año anterior";
+                    clicked => {
+                        root.anio-vista -= 1;
+                    }
+                }
+                Text {
+                    text: root.anio-vista;
+                    color: Tema.texto;
+                    font-size: 17px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.siguiente;
+                    etiqueta-accesible: "Año siguiente";
+                    clicked => {
+                        root.anio-vista += 1;
+                    }
+                }
+            }
+            GridLayout {
+                spacing-vertical: 6px;
+                for n[i] in root.cortos: Rectangle {
+                    property <int> k: root.anio-vista * 12 + i;
+                    property <bool> extremo: k == root.inicio || (root.fin >= 0 && k == root.fin);
+                    property <bool> dentro: k > root.a0 && k < root.a1;
+                    property <bool> sin-datos: k < TableroD.datos-desde || k > TableroD.datos-hasta;
+                    col: mod(i, 3);
+                    row: floor(i / 3);
+                    height: 44px;
+                    background: extremo ? Tema.acento : (dentro ? Tema.acento-suave : (tm.has-hover ? Tema.vidrio-hundido : transparent));
+                    border-top-left-radius: (extremo && k == root.a0) || mod(i, 3) == 0 ? 22px : 0px;
+                    border-bottom-left-radius: (extremo && k == root.a0) || mod(i, 3) == 0 ? 22px : 0px;
+                    border-top-right-radius: (extremo && k == root.a1) || mod(i, 3) == 2 ? 22px : 0px;
+                    border-bottom-right-radius: (extremo && k == root.a1) || mod(i, 3) == 2 ? 22px : 0px;
+                    accessible-role: button;
+                    accessible-label: root.largos[i] + " " + root.anio-vista + (sin-datos ? ", sin datos" : "");
+                    accessible-checked: k >= root.a0 && k <= root.a1;
+                    Text {
+                        text: n;
+                        color: extremo ? Tema.acento-texto : (sin-datos ? Tema.texto-3 : Tema.texto);
+                        font-weight: sin-datos ? 500 : 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: parent.width;
+                        height: parent.height;
+                    }
+                    if k == TableroD.hoy: Rectangle {
+                        x: (parent.width - 5px) / 2;
+                        y: parent.height - 9px;
+                        width: 5px;
+                        height: 5px;
+                        border-radius: 2.5px;
+                        background: extremo ? Tema.acento-texto : Tema.texto-2;
+                    }
+                    tm := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            if root.inicio < 0 || root.fin >= 0 {
+                                root.inicio = k;
+                                root.fin = -1;
+                            } else if k < root.inicio {
+                                root.fin = root.inicio;
+                                root.inicio = k;
+                            } else {
+                                root.fin = k;
+                            }
+                            root.previa = -1;
+                        }
+                        changed has-hover => {
+                            if self.has-hover && root.inicio >= 0 && root.fin < 0 {
+                                root.previa = k;
+                            }
+                        }
+                    }
+                }
+            }
+            Text {
+                text: root.fin >= 0 ? root.cortos[mod(root.a0, 12)] + " " + floor(root.a0 / 12) + " – " + root.cortos[mod(root.a1, 12)] + " " + floor(root.a1 / 12) : "Desde " + root.cortos[mod(root.inicio, 12)] + " " + floor(root.inicio / 12) + ": elige el mes final";
+                color: Tema.texto-2;
+                font-weight: 600;
+                font-size: 13.5px;
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                Boton {
+                    texto: "Cancelar";
+                    clicked => {
+                        root.cerrar();
+                    }
+                }
+                Boton {
+                    texto: "Aplicar";
+                    primario: true;
+                    habilitado: root.fin >= 0;
+                    clicked => {
+                        TableroD.aplicar-rango(root.a0, root.a1);
+                        root.cerrar();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Leyenda inherits HorizontalLayout {
+    in property <color> color;
+    in property <string> texto;
+    spacing: 7px;
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            background: root.color;
+        }
+    }
+    Text {
+        text: root.texto;
+        color: Tema.texto-2;
+        font-weight: 600;
+        font-size: 13.5px;
+        vertical-alignment: center;
+    }
+}
+
+export component ListaLineas inherits VerticalLayout {
+    in property <[Linea]> lineas;
+    in property <string> vacio: "Sin datos.";
+    if lineas.length == 0: Ayuda {
+        text: root.vacio;
+    }
+    for l[i] in lineas: VerticalLayout {
+        if i > 0: Separador { }
+        HorizontalLayout {
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: 12px;
+            accessible-role: text;
+            accessible-label: l.titulo + " " + l.sub + " " + l.monto;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 4px;
+                Text {
+                    text: l.titulo;
+                    color: Tema.texto;
+                    font-weight: 600;
+                    overflow: elide;
+                }
+                if l.tiene-progreso: Progreso {
+                    valor: l.progreso;
+                }
+                if l.sub != "": Ayuda {
+                    text: l.sub;
+                    font-size: 13px;
+                }
+            }
+            Text {
+                text: l.monto;
+                color: l.negativo ? Tema.negativo : Tema.texto;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component PantallaTablero inherits VerticalLayout {
+    property <bool> tabla-abierta: false;
+    spacing: 18px;
+    Encabezado {
+        titulo: "Tablero";
+    }
+    Desplazable {
+        filtros := Vidrio {
+            height: 72px;
+            HorizontalLayout {
+                padding-left: 18px;
+                padding-right: 18px;
+                spacing: 16px;
+                boton-rango := Rectangle {
+                    width: 290px;
+                    height: 50px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Tema.radio-m;
+                    background: tr.has-hover ? Tema.vidrio-fuerte : Tema.vidrio-hundido;
+                    border-width: fr.has-focus ? 2px : 1px;
+                    border-color: fr.has-focus ? Tema.acento : Tema.vidrio-borde;
+                    accessible-role: button;
+                    accessible-label: "Periodo: " + TableroD.rango-nombre + ", " + TableroD.rango-texto;
+                    accessible-action-default => {
+                        cal-popup.show();
+                    }
+                    HorizontalLayout {
+                        padding-left: 12px;
+                        padding-right: 12px;
+                        spacing: 12px;
+                        VerticalLayout {
+                            alignment: center;
+                            Icono {
+                                width: 22px;
+                                height: 22px;
+                                d: Iconos.calendario;
+                                color: Tema.acento;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            horizontal-stretch: 1;
+                            Etiqueta {
+                                text: TableroD.rango-nombre;
+                                font-size: 12px;
+                            }
+                            Text {
+                                text: TableroD.rango-texto;
+                                color: Tema.texto;
+                                font-size: 15.5px;
+                                font-weight: 700;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Icono {
+                                d: Iconos.chevron;
+                                color: Tema.texto-3;
+                            }
+                        }
+                    }
+                    fr := FocusScope {
+                        key-pressed(e) => {
+                            if e.text == " " || e.text == "\n" {
+                                cal-popup.show();
+                                return accept;
+                            }
+                            reject
+                        }
+                    }
+                    tr := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            fr.focus();
+                            cal-popup.show();
+                        }
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: end;
+                    padding-top: 17px;
+                    padding-bottom: 17px;
+                    Etiqueta {
+                        text: "AÑOS";
+                        vertical-alignment: center;
+                    }
+                    for a in TableroD.anios: Boton {
+                        texto: a;
+                        primario: TableroD.anio-activo == a;
+                        etiqueta-accesible: "Año " + a + " completo";
+                        clicked => {
+                            TableroD.aplicar-anio(a);
+                        }
+                    }
+                }
+            }
+            cal-popup := PopupWindow {
+                x: boton-rango.x;
+                y: boton-rango.y + boton-rango.height + 10px;
+                close-policy: close-on-click-outside;
+                Calendario {
+                    cerrar => {
+                        cal-popup.close();
+                    }
+                }
+            }
+        }
+
+        if TableroD.sin-meses: Panel {
+            Titulo {
+                text: "No hay meses en este periodo";
+                horizontal-alignment: center;
+            }
+            Ayuda {
+                text: "Elige otro periodo arriba.";
+                horizontal-alignment: center;
+            }
+        }
+
+        if !TableroD.sin-meses: Heroe {
+            etiqueta: TableroD.hero-etiqueta;
+            valor: TableroD.hero-valor;
+            negativo: TableroD.hero-negativo;
+            nota: TableroD.hero-nota;
+            cifras: TableroD.cifras;
+        }
+        if !TableroD.sin-meses: Panel {
+            Titulo {
+                text: "Promedios y extremos";
+            }
+            Cifras {
+                columnas: 4;
+                cifras: TableroD.kpis;
+            }
+        }
+        if !TableroD.sin-meses: Panel {
+            HorizontalLayout {
+                Titulo {
+                    text: "Ingresos y gastos por mes";
+                    horizontal-stretch: 1;
+                }
+                HorizontalLayout {
+                    spacing: 16px;
+                    horizontal-stretch: 0;
+                    Leyenda {
+                        color: Tema.serie-1;
+                        texto: "Ingresos";
+                    }
+                    Leyenda {
+                        color: Tema.serie-2;
+                        texto: "Gastos";
+                    }
+                }
+            }
+            Grafico {
+                tipo: 0;
+                ejes: TableroD.ejes-ig;
+                barras: TableroD.ig;
+                descripcion: "Ingresos y gastos por mes. Los valores están en la tabla de datos.";
+            }
+        }
+        if !TableroD.sin-meses: HorizontalLayout {
+            spacing: 18px;
+            Panel {
+                HorizontalLayout {
+                    Titulo {
+                        text: "Lo que sobra o falta cada mes";
+                        horizontal-stretch: 1;
+                    }
+                    HorizontalLayout {
+                        spacing: 16px;
+                        horizontal-stretch: 0;
+                        Leyenda {
+                            color: Tema.serie-1;
+                            texto: "Sobra";
+                        }
+                        Leyenda {
+                            color: Tema.polo-neg;
+                            texto: "Falta";
+                        }
+                    }
+                }
+                Grafico {
+                    tipo: 1;
+                    ejes: TableroD.ejes-bal;
+                    barras: TableroD.bal;
+                    descripcion: "Lo que sobra o falta cada mes. Los valores están en la tabla de datos.";
+                }
+            }
+            Panel {
+                HorizontalLayout {
+                    Titulo {
+                        text: "Saldo acumulado";
+                        horizontal-stretch: 1;
+                    }
+                    Ayuda {
+                        text: "Suma de lo que sobra y falta, mes tras mes.";
+                        horizontal-alignment: right;
+                    }
+                }
+                Grafico {
+                    tipo: 2;
+                    ejes: TableroD.ejes-acu;
+                    barras: TableroD.acu;
+                    linea: TableroD.acu-linea;
+                    area: TableroD.acu-area;
+                    descripcion: "Saldo acumulado mes a mes. Los valores están en la tabla de datos.";
+                }
+            }
+        }
+        if !TableroD.sin-meses: HorizontalLayout {
+            spacing: 18px;
+            Panel {
+                Titulo {
+                    text: "¿En qué se va el dinero?";
+                }
+                BarrasH {
+                    grupos: TableroD.destino;
+                }
+            }
+            Panel {
+                Titulo {
+                    text: "Gasto por categoría";
+                }
+                BarrasH {
+                    grupos: TableroD.categoria;
+                }
+            }
+            Panel {
+                Titulo {
+                    text: "Estado de los pagos";
+                }
+                BarrasH {
+                    grupos: TableroD.estado;
+                }
+            }
+        }
+        if !TableroD.sin-meses: HorizontalLayout {
+            spacing: 18px;
+            Panel {
+                horizontal-stretch: 13;
+                Titulo {
+                    text: "Conceptos con más gasto";
+                }
+                BarrasH {
+                    grupos: TableroD.conceptos;
+                }
+            }
+            Panel {
+                horizontal-stretch: 10;
+                Titulo {
+                    text: "Deudas pendientes";
+                }
+                ListaLineas {
+                    lineas: TableroD.deudas;
+                    vacio: "No tienes deudas pendientes.";
+                }
+            }
+        }
+        if !TableroD.sin-meses: HorizontalLayout {
+            spacing: 18px;
+            Panel {
+                horizontal-stretch: 13;
+                Titulo {
+                    text: "Gastos más grandes";
+                }
+                ListaLineas {
+                    lineas: TableroD.mayores;
+                }
+            }
+            Panel {
+                horizontal-stretch: 10;
+                Titulo {
+                    text: "Ingresos por fuente";
+                }
+                BarrasH {
+                    grupos: TableroD.fuentes;
+                }
+            }
+        }
+        if !TableroD.sin-meses: Panel {
+            HorizontalLayout {
+                alignment: start;
+                Boton {
+                    texto: root.tabla-abierta ? "Ocultar los datos de los gráficos" : "Ver los datos de los gráficos en tabla";
+                    icono: Iconos.chevron;
+                    clicked => {
+                        root.tabla-abierta = !root.tabla-abierta;
+                    }
+                }
+            }
+            if root.tabla-abierta: TablaTexto {
+                encabezados: ["Mes", "Ingresos", "Gastos", "Pagado", "Sobra / falta", "Acumulado", "Ahorro"];
+                filas: TableroD.tabla;
+            }
+        }
+    }
+}
+

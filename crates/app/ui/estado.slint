@@ -1,0 +1,339 @@
+// Datos que la interfaz muestra y acciones que pide. Todo llega calculado y formateado desde
+// Rust: la interfaz no calcula dinero.
+
+export struct Fila {
+    id: int,
+    titulo: string,
+    etiquetas: [string],
+    monto: string,
+    negativo: bool,
+    estado: string,
+    tipo: int, // 0 pendiente, 1 pagado, 2 no, 3 aplazado
+    periodo: string,
+}
+
+export struct Pagina {
+    desde: int,
+    hasta: int,
+    cantidad: int,
+    anterior: bool,
+    siguiente: bool,
+}
+
+export struct Cifra {
+    etiqueta: string,
+    valor: string,
+    nota: string,
+    negativo: bool,
+}
+
+export struct Eje {
+    pos: float, // 0..1 desde arriba
+    texto: string,
+}
+
+// Geometría ya normalizada (0..1 desde arriba) para dibujar un mes en los gráficos.
+export struct BarraMes {
+    corto: string,
+    a: float,
+    b: float,
+    base: float,
+    negativo: bool,
+    rotulo: bool,
+    tip: string,
+}
+
+export struct Grupo {
+    nombre: string,
+    monto: string,
+    detalle: string,
+    frac: float,
+}
+
+export struct Linea {
+    titulo: string,
+    sub: string,
+    monto: string,
+    negativo: bool,
+    progreso: float,
+    tiene-progreso: bool,
+}
+
+export struct FilaTabla {
+    c: [string],
+    negativos: [bool],
+}
+
+export struct Preset {
+    nombre: string,
+    desde: int,
+    hasta: int,
+}
+
+export struct DeudaFila {
+    id: int,
+    nombre: string,
+    saldada: bool,
+    progreso: float,
+    tiene-progreso: bool,
+    progreso-texto: string,
+    pagado: string,
+    total: string,
+    pendiente: string,
+    cuotas: string,
+    fin: string,
+    abierta: bool,
+    num: int,
+    filas: [Fila],
+    pagina: Pagina,
+}
+
+export struct TarjetaFila {
+    id: int,
+    nombre: string,
+    registrados: string,
+    uso: float,
+    tiene-uso: bool,
+    uso-texto: string,
+    cupo: string,
+    saldo: string,
+    disponible: string,
+    disponible-negativo: bool,
+    corte: string,
+    pago: string,
+    total-pagado: string,
+    abierta: bool,
+    num: int,
+    filas: [Fila],
+    pagina: Pagina,
+}
+
+export struct ItemFila {
+    id: int,
+    nombre: string,
+    sub: string,
+}
+
+export struct Aviso {
+    id: int,
+    texto: string,
+    error: bool,
+    deshacer: bool,
+}
+
+export struct LineaLog {
+    origen: string,
+    accion: string,
+    detalle: string,
+}
+
+export global Util {
+    pure callback formatear-monto(string) -> string;
+}
+
+export global App {
+    in-out property <int> vista; // 0 tablero … 7 ajustes
+    in property <bool> demo;
+    in property <bool> vacia;
+    in property <string> ruta-base;
+    in property <[Aviso]> avisos;
+    in-out property <int> tam-pagina; // índice: 0=10, 1=25, 2=50
+    callback navegar(int);
+    callback deshacer(int);
+    callback cerrar-aviso(int);
+    callback cambiar-tam(int);
+    callback ajustes-cambiados();
+    callback abrir-gasto(int);
+    callback nuevo-gasto();
+}
+
+export global TableroD {
+    in property <string> rango-nombre;
+    in property <string> rango-texto;
+    in property <[Preset]> presets;
+    in property <int> preset-activo;
+    in property <int> desde;
+    in property <int> hasta;
+    in property <int> datos-desde;
+    in property <int> datos-hasta;
+    in property <int> hoy;
+    in property <[int]> anios;
+    in property <int> anio-activo;
+    in property <bool> sin-meses;
+    in property <string> hero-etiqueta;
+    in property <string> hero-valor;
+    in property <bool> hero-negativo;
+    in property <string> hero-nota;
+    in property <[Cifra]> cifras;
+    in property <[Cifra]> kpis;
+    in property <[Eje]> ejes-ig;
+    in property <[BarraMes]> ig;
+    in property <[Eje]> ejes-bal;
+    in property <[BarraMes]> bal;
+    in property <[Eje]> ejes-acu;
+    in property <[BarraMes]> acu;
+    in property <string> acu-linea;
+    in property <string> acu-area;
+    in property <[Grupo]> destino;
+    in property <[Grupo]> categoria;
+    in property <[Grupo]> estado;
+    in property <[Grupo]> conceptos;
+    in property <[Grupo]> fuentes;
+    in property <[Linea]> deudas;
+    in property <[Linea]> mayores;
+    in property <[FilaTabla]> tabla;
+    callback aplicar-rango(int, int);
+    callback aplicar-preset(int);
+    callback aplicar-anio(int);
+}
+
+export global ResumenD {
+    in-out property <int> modo; // 0 mes, 1 año
+    in property <string> periodo;
+    in property <bool> existe;
+    in property <bool> cerrado;
+    in property <string> hero-etiqueta;
+    in property <string> hero-valor;
+    in property <bool> hero-negativo;
+    in property <string> hero-nota;
+    in property <[Cifra]> cifras;
+    in property <float> avance;
+    in property <string> avance-texto;
+    in property <[Fila]> proximos;
+    in property <Pagina> pag-proximos;
+    in property <[Linea]> ingresos;
+    in property <[int]> ingresos-ids;
+    in property <Pagina> pag-ingresos;
+    in property <[Fila]> gastos;
+    in property <Pagina> pag-gastos;
+    in property <string> total;
+    in property <[FilaTabla]> anio;
+    callback mover(int);
+    callback hoy();
+    callback cambiar-modo(int);
+    callback abrir-mes-de-anio(int);
+    callback marcar-pagado(int);
+    callback editar-ingreso(int);
+    callback nuevo-ingreso();
+    callback editar-mes();
+    callback paginar(string, bool);
+}
+
+export global MovsD {
+    in-out property <string> texto;
+    in-out property <int> anio;
+    in-out property <int> mes;
+    in-out property <int> estado;
+    in-out property <int> pago;
+    in-out property <int> categoria;
+    in-out property <int> deuda;
+    in-out property <int> tarjeta;
+    in property <[string]> o-anios;
+    in property <[string]> o-meses;
+    in property <[string]> o-estados;
+    in property <[string]> o-pagos;
+    in property <[string]> o-categorias;
+    in property <[string]> o-deudas;
+    in property <[string]> o-tarjetas;
+    in property <string> titulo;
+    in property <string> suma;
+    in property <[Fila]> filas;
+    in property <Pagina> pagina;
+    callback filtrar();
+    callback limpiar();
+    callback paginar(bool);
+}
+
+export global DeudasD {
+    in property <[DeudaFila]> activas;
+    in property <Pagina> pag-activas;
+    in property <[DeudaFila]> saldadas;
+    in property <Pagina> pag-saldadas;
+    in property <int> num-activas;
+    in property <int> num-saldadas;
+    callback nueva();
+    callback editar(int);
+    callback alternar(int);
+    callback nueva-cuota(int);
+    callback paginar-cuotas(int, bool);
+    callback paginar(string, bool);
+}
+
+export global TarjetasD {
+    in property <[TarjetaFila]> tarjetas;
+    in property <Pagina> pagina;
+    callback nueva();
+    callback editar(int);
+    callback alternar(int);
+    callback nuevo-pago(int);
+    callback paginar-pagos(int, bool);
+    callback paginar(bool);
+}
+
+export global CatsD {
+    in property <[ItemFila]> estados;
+    in property <Pagina> pag-estados;
+    in property <[ItemFila]> categorias;
+    in property <Pagina> pag-categorias;
+    in property <[ItemFila]> fuentes;
+    in property <Pagina> pag-fuentes;
+    callback agregar(int, string);
+    callback editar(int, int);
+    callback paginar(int, bool);
+}
+
+export global DatosD {
+    in-out property <bool> forzar;
+    in property <bool> hay-informe;
+    in property <string> informe-titulo;
+    in property <bool> informe-ok;
+    in property <[Cifra]> informe-datos;
+    in property <[FilaTabla]> diferencias;
+    in property <[FilaTabla]> aceptadas;
+    in property <string> log-titulo;
+    in property <[LineaLog]> log;
+    in property <[Linea]> historial;
+    in property <Pagina> pag-historial;
+    callback importar();
+    callback plantilla();
+    callback exportar-ods();
+    callback exportar-csv();
+    callback paginar(bool);
+}
+
+// Formulario modal genérico: los campos se reutilizan según el tipo.
+export global Form {
+    in-out property <int> tipo; // 0 cerrado, 1 gasto, 2 ingreso, 3 deuda, 4 tarjeta, 5 mes, 6 elemento de catálogo
+    in-out property <string> titulo;
+    in-out property <string> error;
+    in-out property <bool> puede-borrar;
+    in-out property <bool> es-estado;
+    in-out property <string> t1;
+    in-out property <string> t2;
+    in-out property <string> t3;
+    in-out property <string> t4;
+    in-out property <string> t5;
+    in-out property <int> s1;
+    in-out property <int> s2;
+    in-out property <int> s3;
+    in-out property <int> s4;
+    in-out property <int> s5;
+    in-out property <bool> b1;
+    in property <[string]> o1;
+    in property <[string]> o2;
+    in property <[string]> o3;
+    in property <[string]> o4;
+    in property <[string]> o5;
+    callback guardar();
+    callback borrar();
+    callback cancelar();
+}
+
+export global Confirmar {
+    in-out property <bool> visible;
+    in-out property <string> titulo;
+    in-out property <string> texto;
+    in-out property <string> boton: "Borrar";
+    callback si();
+    callback no();
+}

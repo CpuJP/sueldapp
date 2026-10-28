@@ -11,7 +11,7 @@ datos con conciliación exacta. Un usuario, un equipo, sin red. Moneda: COP.
 ## Stack
 
 - Rust estable (workspace), `rust_decimal` para dinero, SQLite con `rusqlite` (bundled).
-- Tauri 2 con interfaz HTML/CSS/JS plano (sin npm ni bundler) en `crates/app/ui/`.
+- Interfaz nativa con Slint 1.18 (licencia Royalty-free, atribución en Ajustes) en `crates/app/ui/*.slint`.
 - Lectura/escritura `.ods` propia con `zip` + `quick-xml` (sin `f64`).
 
 ## Estructura
@@ -20,7 +20,7 @@ datos con conciliación exacta. Un usuario, un equipo, sin red. Moneda: COP.
 crates/dominio/   tipos y reglas de negocio puras (sin IO). Aquí vive todo cálculo de dinero.
 crates/almacen/   SQLite: migraciones (migraciones/NNNN_*.sql) y repositorios.
 crates/ods/       lector/escritor .ods, importador, conciliación, export CSV, binario `importar`.
-crates/app/       Tauri: comandos (src/comandos.rs) e interfaz (ui/).
+crates/app/       interfaz Slint (ui/) y su enlace: vistas.rs, pantallas.rs, acciones.rs.
 specs/            artefactos de Spec Kit (spec, plan, tasks…).
 docs/             análisis de la hoja, arquitectura, guía de usuario, migración, ADRs.
 ```
@@ -35,14 +35,14 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p sueldapp                         # ejecutar la app
 cargo run -p sueldapp-ods --bin importar -- Ingreso-Egreso.ods   # migrar desde terminal
 SUELDAPP_DB=/ruta/demo.sqlite3 SUELDAPP_DEMO=1 cargo run -p sueldapp   # datos ficticios
-SUELDAPP_DB=/tmp/demo.sqlite3 SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS=docs/capturas cargo run -p sueldapp --features capturas  # capturas + prueba de humo
+SUELDAPP_DB=/tmp/demo.sqlite3 SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS=docs/capturas cargo run -p sueldapp  # capturas + prueba de humo
 ```
 
 La prueba de conciliación busca el `.ods` en la raíz o en `SUELDAPP_ODS`. Sin el archivo falla;
 con `SUELDAPP_SIN_ODS=1` se omite (CI y equipos sin los datos). Usa las reglas personales de
 `reglas.txt` en la raíz (o `SUELDAPP_REGLAS`) si existen.
 
-Instaladores: `(cd crates/app && npx @tauri-apps/cli@2.12.2 build)`. CI y releases en
+Instaladores: `cargo packager --release -p sueldapp` y `cargo generate-rpm -p crates/app`. CI y releases en
 `.github/workflows/` (Linux y Windows, x64 y ARM64); ver `docs/RELEASES.md`.
 
 ## Convenciones Rust

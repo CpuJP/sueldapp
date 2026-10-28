@@ -1,10 +1,7 @@
-//! Comandos que llama la interfaz (ver `specs/001-finanzas-escritorio/contracts/comandos.md`).
-//! Los montos salen como `{valor, texto}`: la interfaz nunca formatea ni calcula dinero.
+//! Vistas: datos ya calculados y formateados que muestra la interfaz. Todo el dinero sale del
+//! núcleo como `Monto {valor, texto}`: la interfaz nunca calcula ni formatea dinero.
 
-use crate::Base;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::MutexGuard;
 use sueldapp_almacen::repo::{self, Catalogo, MesCompleto};
 use sueldapp_almacen::Connection;
 use sueldapp_dominio::calculos::{
@@ -16,25 +13,17 @@ use sueldapp_dominio::texto::contiene;
 use sueldapp_dominio::{
     Decimal, Deuda, Estado, Gasto, Ingreso, Item, Mes, Periodo, Tarjeta, NOMBRES_MES,
 };
-use tauri::State;
-use tauri_plugin_dialog::DialogExt;
 
 type R<T> = Result<T, String>;
-
-fn base<'a>(b: &'a State<Base>) -> R<MutexGuard<'a, Connection>> {
-    b.0.lock()
-        .map_err(|_| "La base de datos quedó bloqueada; reinicia la app.".to_string())
-}
 
 fn e(x: impl std::fmt::Display) -> String {
     x.to_string()
 }
 
-#[derive(Serialize)]
 pub struct Monto {
-    valor: Decimal,
-    texto: String,
-    negativo: bool,
+    pub valor: Decimal,
+    pub texto: String,
+    pub negativo: bool,
 }
 
 fn monto(d: Decimal) -> Monto {
@@ -52,14 +41,13 @@ fn nombre_periodo((anio, mes): Periodo) -> String {
     )
 }
 
-#[derive(Serialize)]
 pub struct Totales {
-    ingreso: Monto,
-    total: Monto,
-    pagado: Monto,
-    pendiente: Monto,
-    restante: Monto,
-    restante_pagado: Monto,
+    pub ingreso: Monto,
+    pub total: Monto,
+    pub pagado: Monto,
+    pub pendiente: Monto,
+    pub restante: Monto,
+    pub restante_pagado: Monto,
 }
 
 fn totales(t: &TotalesMes) -> Totales {
@@ -135,8 +123,6 @@ impl Contexto {
             pagado: self.pagado(g.estado_id),
             estado,
             periodo: nombre_periodo(periodo),
-            anio: periodo.0,
-            mes: periodo.1,
             deuda: g.deuda_id.and_then(|i| self.deudas.get(&i).cloned()),
             tarjeta: g.tarjeta_id.and_then(|i| self.tarjetas.get(&i).cloned()),
             categoria: g
@@ -155,71 +141,39 @@ impl Contexto {
     }
 }
 
-#[derive(Serialize)]
 pub struct GastoVista {
-    #[serde(flatten)]
-    gasto: Gasto,
-    monto_texto: String,
-    pagado: bool,
-    estado: String,
-    periodo: String,
-    anio: i32,
-    mes: u32,
-    deuda: Option<String>,
-    tarjeta: Option<String>,
-    categoria: Option<String>,
+    pub gasto: Gasto,
+    pub monto_texto: String,
+    pub pagado: bool,
+    pub estado: String,
+    pub periodo: String,
+    pub deuda: Option<String>,
+    pub tarjeta: Option<String>,
+    pub categoria: Option<String>,
 }
 
-#[derive(Serialize)]
 pub struct IngresoVista {
-    #[serde(flatten)]
-    ingreso: Ingreso,
-    monto_texto: String,
-    fuente: String,
+    pub ingreso: Ingreso,
+    pub monto_texto: String,
+    pub fuente: String,
 }
 
 // ---------- Config y catálogos ----------
 
-#[derive(Serialize)]
-pub struct Config {
-    /// `SUELDAPP_TEMA` (claro/oscuro) para capturas; `None` = seguir al sistema.
-    tema: Option<String>,
-    demo: bool,
-    /// Modo de capturas de pantalla (solo desarrollo).
-    capturas: bool,
-    base: String,
-    vacia: bool,
-}
-
-#[tauri::command]
-pub fn config(b: State<Base>) -> R<Config> {
-    let c = base(&b)?;
-    Ok(Config {
-        tema: std::env::var("SUELDAPP_TEMA").ok(),
-        demo: std::env::var_os("SUELDAPP_DEMO").is_some(),
-        capturas: std::env::var_os("SUELDAPP_CAPTURAS").is_some(),
-        base: sueldapp_almacen::ruta_por_defecto().display().to_string(),
-        vacia: repo::listar_meses(&c).map_err(e)?.is_empty(),
-    })
-}
-
-#[derive(Serialize)]
 pub struct Catalogos {
-    estados: Vec<Estado>,
-    categorias: Vec<Item>,
-    fuentes: Vec<Item>,
-    deudas: Vec<Item>,
-    tarjetas: Vec<Item>,
+    pub estados: Vec<Estado>,
+    pub categorias: Vec<Item>,
+    pub fuentes: Vec<Item>,
+    pub deudas: Vec<Item>,
+    pub tarjetas: Vec<Item>,
 }
 
-#[tauri::command]
-pub fn catalogos(b: State<Base>) -> R<Catalogos> {
-    let c = base(&b)?;
+pub fn catalogos(c: &Connection) -> R<Catalogos> {
     Ok(Catalogos {
-        estados: repo::listar_estados(&c).map_err(e)?,
-        categorias: repo::listar_items(&c, Catalogo::Categorias).map_err(e)?,
-        fuentes: repo::listar_items(&c, Catalogo::Fuentes).map_err(e)?,
-        deudas: repo::listar_deudas(&c)
+        estados: repo::listar_estados(c).map_err(e)?,
+        categorias: repo::listar_items(c, Catalogo::Categorias).map_err(e)?,
+        fuentes: repo::listar_items(c, Catalogo::Fuentes).map_err(e)?,
+        deudas: repo::listar_deudas(c)
             .map_err(e)?
             .into_iter()
             .map(|d| Item {
@@ -227,7 +181,7 @@ pub fn catalogos(b: State<Base>) -> R<Catalogos> {
                 nombre: d.nombre,
             })
             .collect(),
-        tarjetas: repo::listar_tarjetas(&c)
+        tarjetas: repo::listar_tarjetas(c)
             .map_err(e)?
             .into_iter()
             .map(|t| Item {
@@ -240,45 +194,33 @@ pub fn catalogos(b: State<Base>) -> R<Catalogos> {
 
 // ---------- Meses y resúmenes ----------
 
-#[tauri::command]
-pub fn listar_meses(b: State<Base>) -> R<Vec<Mes>> {
-    repo::listar_meses(&*base(&b)?).map_err(e)
+pub fn guardar_mes(c: &Connection, mes: Mes) -> R<Mes> {
+    repo::guardar_mes(c, &mes).map_err(e)
 }
 
-#[tauri::command]
-pub fn guardar_mes(b: State<Base>, mes: Mes) -> R<Mes> {
-    repo::guardar_mes(&*base(&b)?, &mes).map_err(e)
+pub fn borrar_mes(c: &Connection, id: i64) -> R<MesCompleto> {
+    repo::borrar_mes(c, id).map_err(e)
 }
 
-#[tauri::command]
-pub fn borrar_mes(b: State<Base>, id: i64) -> R<MesCompleto> {
-    repo::borrar_mes(&*base(&b)?, id).map_err(e)
+pub fn restaurar_mes(c: &Connection, mes: MesCompleto) -> R<()> {
+    repo::restaurar_mes(c, &mes).map_err(e)
 }
 
-#[tauri::command]
-pub fn restaurar_mes(b: State<Base>, mes: MesCompleto) -> R<()> {
-    repo::restaurar_mes(&*base(&b)?, &mes).map_err(e)
-}
-
-#[derive(Serialize)]
 pub struct ResumenMes {
-    mes: Option<Mes>,
-    nombre: String,
-    totales: Totales,
-    gastos: Vec<GastoVista>,
-    ingresos: Vec<IngresoVista>,
-    proximos: Vec<GastoVista>,
+    pub mes: Option<Mes>,
+    pub nombre: String,
+    pub totales: Totales,
+    pub ingresos: Vec<IngresoVista>,
+    pub proximos: Vec<GastoVista>,
 }
 
-#[tauri::command]
-pub fn resumen_mes(b: State<Base>, anio: i32, mes: u32) -> R<ResumenMes> {
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
-    let m = repo::mes_por_periodo(&c, anio, mes).map_err(e)?;
+pub fn resumen_mes(c: &Connection, anio: i32, mes: u32) -> R<ResumenMes> {
+    let ctx = Contexto::cargar(c)?;
+    let m = repo::mes_por_periodo(c, anio, mes).map_err(e)?;
     let (gastos, ingresos) = match m.as_ref().and_then(|m| m.id) {
         Some(id) => (
-            repo::gastos_de_mes(&c, id).map_err(e)?,
-            repo::ingresos_de_mes(&c, id).map_err(e)?,
+            repo::gastos_de_mes(c, id).map_err(e)?,
+            repo::ingresos_de_mes(c, id).map_err(e)?,
         ),
         None => (vec![], vec![]),
     };
@@ -293,46 +235,38 @@ pub fn resumen_mes(b: State<Base>, anio: i32, mes: u32) -> R<ResumenMes> {
         nombre: nombre_periodo((anio, mes)),
         mes: m,
         totales: totales(&t),
-        gastos: gastos.into_iter().map(|g| ctx.gasto(g)).collect(),
         ingresos: ingresos.into_iter().map(|i| ctx.ingreso(i)).collect(),
         proximos,
     })
 }
 
-#[derive(Serialize)]
 pub struct MesDelAnio {
-    mes: u32,
-    nombre: String,
-    existe: bool,
-    totales: Totales,
+    pub nombre: String,
+    pub existe: bool,
+    pub totales: Totales,
 }
 
-#[derive(Serialize)]
 pub struct ResumenAnio {
-    anio: i32,
-    totales: Totales,
-    meses: Vec<MesDelAnio>,
+    pub totales: Totales,
+    pub meses: Vec<MesDelAnio>,
 }
 
-#[tauri::command]
-pub fn resumen_anio(b: State<Base>, anio: i32) -> R<ResumenAnio> {
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
-    let meses = repo::listar_meses(&c).map_err(e)?;
+pub fn resumen_anio(c: &Connection, anio: i32) -> R<ResumenAnio> {
+    let ctx = Contexto::cargar(c)?;
+    let meses = repo::listar_meses(c).map_err(e)?;
     let mut lista = Vec::new();
     let mut todos = Vec::new();
     for mes in 1..=12 {
         let m = meses.iter().find(|m| m.anio == anio && m.mes == mes);
         let t = match m.and_then(|m| m.id) {
             Some(id) => totales_mes(
-                &repo::gastos_de_mes(&c, id).map_err(e)?,
-                &repo::ingresos_de_mes(&c, id).map_err(e)?,
+                &repo::gastos_de_mes(c, id).map_err(e)?,
+                &repo::ingresos_de_mes(c, id).map_err(e)?,
                 |x| ctx.pagado(x),
             ),
             None => TotalesMes::default(),
         };
         lista.push(MesDelAnio {
-            mes,
             nombre: NOMBRES_MES[mes as usize - 1].to_string(),
             existe: m.is_some(),
             totales: totales(&t),
@@ -340,7 +274,6 @@ pub fn resumen_anio(b: State<Base>, anio: i32) -> R<ResumenAnio> {
         todos.push(t);
     }
     Ok(ResumenAnio {
-        anio,
         totales: totales(&sumar(&todos)),
         meses: lista,
     })
@@ -348,34 +281,33 @@ pub fn resumen_anio(b: State<Base>, anio: i32) -> R<ResumenAnio> {
 
 // ---------- Gastos e ingresos ----------
 
-#[derive(Deserialize, Default)]
+#[derive(Default, Clone)]
 pub struct Filtro {
-    texto: Option<String>,
-    anio: Option<i32>,
-    mes: Option<u32>,
-    estado_id: Option<i64>,
-    categoria_id: Option<i64>,
-    deuda_id: Option<i64>,
-    tarjeta_id: Option<i64>,
+    pub texto: Option<String>,
+    pub anio: Option<i32>,
+    pub mes: Option<u32>,
+    pub estado_id: Option<i64>,
+    pub categoria_id: Option<i64>,
+    pub deuda_id: Option<i64>,
+    pub tarjeta_id: Option<i64>,
     /// `"pagados"` o `"pendientes"`.
-    pago: Option<String>,
+    pub pago: Option<String>,
     /// Cursor devuelto por la página anterior (`cursor_siguiente` o `cursor_anterior`).
-    cursor: Option<String>,
-    direccion: Option<Direccion>,
+    pub cursor: Option<String>,
+    pub direccion: Option<Direccion>,
     /// Elementos por página (10 por defecto).
-    limite: Option<usize>,
+    pub limite: Option<usize>,
 }
 
-#[derive(Serialize)]
 pub struct Busqueda {
-    gastos: Vec<GastoVista>,
+    pub gastos: Vec<GastoVista>,
     /// Suma y cantidad de todos los resultados, no solo de la página.
-    total: Monto,
-    cantidad: usize,
-    desde: usize,
-    hasta: usize,
-    cursor_siguiente: Option<String>,
-    cursor_anterior: Option<String>,
+    pub total: Monto,
+    pub cantidad: usize,
+    pub desde: usize,
+    pub hasta: usize,
+    pub cursor_siguiente: Option<String>,
+    pub cursor_anterior: Option<String>,
 }
 
 /// Clave de orden de los gastos: mes más reciente primero; dentro del mes, orden de la hoja.
@@ -402,12 +334,10 @@ fn cursor_clave(t: &str) -> R<ClaveGasto> {
     ))
 }
 
-#[tauri::command]
-pub fn buscar_gastos(b: State<Base>, filtro: Filtro) -> R<Busqueda> {
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
+pub fn buscar_gastos(c: &Connection, filtro: Filtro) -> R<Busqueda> {
+    let ctx = Contexto::cargar(c)?;
     let texto = filtro.texto.unwrap_or_default();
-    let mut v: Vec<Gasto> = repo::todos_gastos(&c)
+    let mut v: Vec<Gasto> = repo::todos_gastos(c)
         .map_err(e)?
         .into_iter()
         .filter(|g| {
@@ -459,19 +389,18 @@ pub fn buscar_gastos(b: State<Base>, filtro: Filtro) -> R<Busqueda> {
 }
 
 /// Datos de un formulario de gasto. El monto llega como lo escribió el usuario.
-#[derive(Deserialize)]
 pub struct GastoEntrada {
-    id: Option<i64>,
-    anio: i32,
-    mes: u32,
-    concepto: String,
-    monto: String,
-    estado_id: i64,
-    categoria_id: Option<i64>,
-    deuda_id: Option<i64>,
-    tarjeta_id: Option<i64>,
-    nota: String,
-    fuera_de_bloque: bool,
+    pub id: Option<i64>,
+    pub anio: i32,
+    pub mes: u32,
+    pub concepto: String,
+    pub monto: String,
+    pub estado_id: i64,
+    pub categoria_id: Option<i64>,
+    pub deuda_id: Option<i64>,
+    pub tarjeta_id: Option<i64>,
+    pub nota: String,
+    pub fuera_de_bloque: bool,
 }
 
 /// Id del mes; lo crea si no existe.
@@ -491,17 +420,15 @@ fn mes_id(c: &Connection, anio: i32, mes: u32) -> R<i64> {
     m.id.ok_or_else(|| "mes sin id".to_string())
 }
 
-#[tauri::command]
-pub fn guardar_gasto(b: State<Base>, gasto: GastoEntrada) -> R<GastoVista> {
-    let c = base(&b)?;
+pub fn guardar_gasto(c: &Connection, gasto: GastoEntrada) -> R<GastoVista> {
     let previo = gasto
         .id
-        .map(|id| repo::gasto(&c, id))
+        .map(|id| repo::gasto(c, id))
         .transpose()
         .map_err(e)?;
     let g = Gasto {
         id: gasto.id,
-        mes_id: mes_id(&c, gasto.anio, gasto.mes)?,
+        mes_id: mes_id(c, gasto.anio, gasto.mes)?,
         concepto: gasto.concepto,
         monto: leer_monto(&gasto.monto).map_err(e)?,
         estado_id: gasto.estado_id,
@@ -518,42 +445,37 @@ pub fn guardar_gasto(b: State<Base>, gasto: GastoEntrada) -> R<GastoVista> {
         orden: previo.as_ref().map(|p| p.orden).unwrap_or(i64::MAX / 2),
         origen: previo.and_then(|p| p.origen),
     };
-    let g = repo::guardar_gasto(&c, &g).map_err(e)?;
-    Ok(Contexto::cargar(&c)?.gasto(g))
+    let g = repo::guardar_gasto(c, &g).map_err(e)?;
+    Ok(Contexto::cargar(c)?.gasto(g))
 }
 
-#[tauri::command]
-pub fn borrar_gasto(b: State<Base>, id: i64) -> R<Gasto> {
-    repo::borrar_gasto(&*base(&b)?, id).map_err(e)
+pub fn borrar_gasto(c: &Connection, id: i64) -> R<Gasto> {
+    repo::borrar_gasto(c, id).map_err(e)
 }
 
-#[tauri::command]
-pub fn restaurar_gasto(b: State<Base>, gasto: Gasto) -> R<Gasto> {
-    repo::restaurar_gasto(&*base(&b)?, &gasto).map_err(e)
+pub fn restaurar_gasto(c: &Connection, gasto: Gasto) -> R<Gasto> {
+    repo::restaurar_gasto(c, &gasto).map_err(e)
 }
 
-#[derive(Deserialize)]
 pub struct IngresoEntrada {
-    id: Option<i64>,
-    anio: i32,
-    mes: u32,
-    fuente_id: i64,
-    monto: String,
-    nota: String,
+    pub id: Option<i64>,
+    pub anio: i32,
+    pub mes: u32,
+    pub fuente_id: i64,
+    pub monto: String,
+    pub nota: String,
 }
 
-#[tauri::command]
-pub fn guardar_ingreso(b: State<Base>, ingreso: IngresoEntrada) -> R<IngresoVista> {
-    let c = base(&b)?;
+pub fn guardar_ingreso(c: &Connection, ingreso: IngresoEntrada) -> R<IngresoVista> {
     let previo = ingreso
         .id
-        .map(|id| repo::ingreso(&c, id))
+        .map(|id| repo::ingreso(c, id))
         .transpose()
         .map_err(e)?;
     let monto = leer_monto(&ingreso.monto).map_err(e)?;
     let i = Ingreso {
         id: ingreso.id,
-        mes_id: mes_id(&c, ingreso.anio, ingreso.mes)?,
+        mes_id: mes_id(c, ingreso.anio, ingreso.mes)?,
         fuente_id: ingreso.fuente_id,
         monto,
         desglose: previo
@@ -563,44 +485,37 @@ pub fn guardar_ingreso(b: State<Base>, ingreso: IngresoEntrada) -> R<IngresoVist
         nota: ingreso.nota,
         origen: previo.and_then(|p| p.origen),
     };
-    let i = repo::guardar_ingreso(&c, &i).map_err(e)?;
-    Ok(Contexto::cargar(&c)?.ingreso(i))
+    let i = repo::guardar_ingreso(c, &i).map_err(e)?;
+    Ok(Contexto::cargar(c)?.ingreso(i))
 }
 
-#[tauri::command]
-pub fn borrar_ingreso(b: State<Base>, id: i64) -> R<Ingreso> {
-    repo::borrar_ingreso(&*base(&b)?, id).map_err(e)
+pub fn borrar_ingreso(c: &Connection, id: i64) -> R<Ingreso> {
+    repo::borrar_ingreso(c, id).map_err(e)
 }
 
-#[tauri::command]
-pub fn restaurar_ingreso(b: State<Base>, ingreso: Ingreso) -> R<Ingreso> {
-    repo::restaurar_ingreso(&*base(&b)?, &ingreso).map_err(e)
+pub fn restaurar_ingreso(c: &Connection, ingreso: Ingreso) -> R<Ingreso> {
+    repo::restaurar_ingreso(c, &ingreso).map_err(e)
 }
 
 // ---------- Deudas ----------
 
-#[derive(Serialize)]
 pub struct DeudaVista {
-    #[serde(flatten)]
-    deuda: Deuda,
-    total_texto: Option<String>,
-    ajuste_texto: String,
-    pagado: Monto,
-    pendiente: Option<Monto>,
-    progreso: Option<Decimal>,
-    cuotas_pagadas: usize,
-    cuotas_registradas: usize,
-    fin_estimado: Option<String>,
-    cuotas: Vec<GastoVista>,
+    pub deuda: Deuda,
+    pub total_texto: Option<String>,
+    pub pagado: Monto,
+    pub pendiente: Option<Monto>,
+    pub progreso: Option<Decimal>,
+    pub cuotas_pagadas: usize,
+    pub cuotas_registradas: usize,
+    pub fin_estimado: Option<String>,
+    pub cuotas: Vec<GastoVista>,
 }
 
-#[tauri::command]
-pub fn listar_deudas(b: State<Base>) -> R<Vec<DeudaVista>> {
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
-    let gastos = repo::todos_gastos(&c).map_err(e)?;
+pub fn listar_deudas(c: &Connection) -> R<Vec<DeudaVista>> {
+    let ctx = Contexto::cargar(c)?;
+    let gastos = repo::todos_gastos(c).map_err(e)?;
     let mut v = Vec::new();
-    for d in repo::listar_deudas(&c).map_err(e)? {
+    for d in repo::listar_deudas(c).map_err(e)? {
         let mut propias: Vec<Gasto> = gastos
             .iter()
             .filter(|g| g.deuda_id.is_some() && g.deuda_id == d.id)
@@ -618,7 +533,6 @@ pub fn listar_deudas(b: State<Base>) -> R<Vec<DeudaVista>> {
         let s = saldo_deuda(d.total, d.ajuste, &cuotas);
         v.push(DeudaVista {
             total_texto: d.total.map(formatear),
-            ajuste_texto: formatear(d.ajuste),
             pagado: monto(s.pagado),
             pendiente: s.pendiente.map(monto),
             progreso: s.progreso,
@@ -639,22 +553,19 @@ fn monto_opcional(t: &Option<String>) -> R<Option<Decimal>> {
     }
 }
 
-#[derive(Deserialize)]
 pub struct DeudaEntrada {
-    id: Option<i64>,
-    nombre: String,
-    total: Option<String>,
-    ajuste: Option<String>,
-    saldada: bool,
-    notas: String,
+    pub id: Option<i64>,
+    pub nombre: String,
+    pub total: Option<String>,
+    pub ajuste: Option<String>,
+    pub saldada: bool,
+    pub notas: String,
 }
 
-#[tauri::command]
-pub fn guardar_deuda(b: State<Base>, deuda: DeudaEntrada) -> R<Deuda> {
-    let c = base(&b)?;
+pub fn guardar_deuda(c: &Connection, deuda: DeudaEntrada) -> R<Deuda> {
     let previo = deuda
         .id
-        .map(|id| repo::deuda(&c, id))
+        .map(|id| repo::deuda(c, id))
         .transpose()
         .map_err(e)?;
     let d = Deuda {
@@ -666,50 +577,43 @@ pub fn guardar_deuda(b: State<Base>, deuda: DeudaEntrada) -> R<Deuda> {
         notas: deuda.notas,
         origen: previo.and_then(|p| p.origen),
     };
-    repo::guardar_deuda(&c, &d).map_err(e)
+    repo::guardar_deuda(c, &d).map_err(e)
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Borrado<T> {
-    registro: T,
-    vinculados: Vec<i64>,
+    pub registro: T,
+    pub vinculados: Vec<i64>,
 }
 
-#[tauri::command]
-pub fn borrar_deuda(b: State<Base>, id: i64) -> R<Borrado<Deuda>> {
-    let (registro, vinculados) = repo::borrar_deuda(&*base(&b)?, id).map_err(e)?;
+pub fn borrar_deuda(c: &Connection, id: i64) -> R<Borrado<Deuda>> {
+    let (registro, vinculados) = repo::borrar_deuda(c, id).map_err(e)?;
     Ok(Borrado {
         registro,
         vinculados,
     })
 }
 
-#[tauri::command]
-pub fn restaurar_deuda(b: State<Base>, borrado: Borrado<Deuda>) -> R<Deuda> {
-    repo::restaurar_deuda(&*base(&b)?, &borrado.registro, &borrado.vinculados).map_err(e)
+pub fn restaurar_deuda(c: &Connection, borrado: Borrado<Deuda>) -> R<Deuda> {
+    repo::restaurar_deuda(c, &borrado.registro, &borrado.vinculados).map_err(e)
 }
 
 // ---------- Tarjetas ----------
 
-#[derive(Serialize)]
 pub struct TarjetaVista {
-    #[serde(flatten)]
-    tarjeta: Tarjeta,
-    cupo_texto: Option<String>,
-    saldo_texto: Option<String>,
-    disponible: Option<Monto>,
-    total_pagado: Monto,
-    pagos_registrados: usize,
-    pagos: Vec<GastoVista>,
+    pub tarjeta: Tarjeta,
+    pub cupo_texto: Option<String>,
+    pub saldo_texto: Option<String>,
+    pub disponible: Option<Monto>,
+    pub total_pagado: Monto,
+    pub pagos_registrados: usize,
+    pub pagos: Vec<GastoVista>,
 }
 
-#[tauri::command]
-pub fn listar_tarjetas(b: State<Base>) -> R<Vec<TarjetaVista>> {
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
-    let gastos = repo::todos_gastos(&c).map_err(e)?;
+pub fn listar_tarjetas(c: &Connection) -> R<Vec<TarjetaVista>> {
+    let ctx = Contexto::cargar(c)?;
+    let gastos = repo::todos_gastos(c).map_err(e)?;
     let mut v = Vec::new();
-    for t in repo::listar_tarjetas(&c).map_err(e)? {
+    for t in repo::listar_tarjetas(c).map_err(e)? {
         let mut propios: Vec<Gasto> = gastos
             .iter()
             .filter(|g| g.tarjeta_id.is_some() && g.tarjeta_id == t.id)
@@ -738,22 +642,19 @@ pub fn listar_tarjetas(b: State<Base>) -> R<Vec<TarjetaVista>> {
     Ok(v)
 }
 
-#[derive(Deserialize)]
 pub struct TarjetaEntrada {
-    id: Option<i64>,
-    nombre: String,
-    cupo: Option<String>,
-    saldo: Option<String>,
-    dia_corte: Option<u8>,
-    dia_pago: Option<u8>,
+    pub id: Option<i64>,
+    pub nombre: String,
+    pub cupo: Option<String>,
+    pub saldo: Option<String>,
+    pub dia_corte: Option<u8>,
+    pub dia_pago: Option<u8>,
 }
 
-#[tauri::command]
-pub fn guardar_tarjeta(b: State<Base>, tarjeta: TarjetaEntrada) -> R<Tarjeta> {
-    let c = base(&b)?;
+pub fn guardar_tarjeta(c: &Connection, tarjeta: TarjetaEntrada) -> R<Tarjeta> {
     let previo = tarjeta
         .id
-        .map(|id| repo::tarjeta(&c, id))
+        .map(|id| repo::tarjeta(c, id))
         .transpose()
         .map_err(e)?;
     let t = Tarjeta {
@@ -765,168 +666,69 @@ pub fn guardar_tarjeta(b: State<Base>, tarjeta: TarjetaEntrada) -> R<Tarjeta> {
         dia_pago: tarjeta.dia_pago,
         origen: previo.and_then(|p| p.origen),
     };
-    repo::guardar_tarjeta(&c, &t).map_err(e)
+    repo::guardar_tarjeta(c, &t).map_err(e)
 }
 
-#[tauri::command]
-pub fn borrar_tarjeta(b: State<Base>, id: i64) -> R<Borrado<Tarjeta>> {
-    let (registro, vinculados) = repo::borrar_tarjeta(&*base(&b)?, id).map_err(e)?;
+pub fn borrar_tarjeta(c: &Connection, id: i64) -> R<Borrado<Tarjeta>> {
+    let (registro, vinculados) = repo::borrar_tarjeta(c, id).map_err(e)?;
     Ok(Borrado {
         registro,
         vinculados,
     })
 }
 
-#[tauri::command]
-pub fn restaurar_tarjeta(b: State<Base>, borrado: Borrado<Tarjeta>) -> R<Tarjeta> {
-    repo::restaurar_tarjeta(&*base(&b)?, &borrado.registro, &borrado.vinculados).map_err(e)
+pub fn restaurar_tarjeta(c: &Connection, borrado: Borrado<Tarjeta>) -> R<Tarjeta> {
+    repo::restaurar_tarjeta(c, &borrado.registro, &borrado.vinculados).map_err(e)
 }
 
 // ---------- Catálogos ----------
 
-#[tauri::command]
-pub fn guardar_estado(b: State<Base>, estado: Estado) -> R<Estado> {
-    repo::guardar_estado(&*base(&b)?, &estado).map_err(e)
+pub fn guardar_estado(c: &Connection, estado: Estado) -> R<Estado> {
+    repo::guardar_estado(c, &estado).map_err(e)
 }
 
-#[tauri::command]
-pub fn borrar_estado(b: State<Base>, id: i64, reasignar_a: Option<i64>) -> R<()> {
-    repo::borrar_estado(&*base(&b)?, id, reasignar_a).map_err(e)
+pub fn borrar_estado(c: &Connection, id: i64, reasignar_a: Option<i64>) -> R<()> {
+    repo::borrar_estado(c, id, reasignar_a).map_err(e)
 }
 
-#[tauri::command]
-pub fn guardar_item(b: State<Base>, tipo: Catalogo, item: Item) -> R<Item> {
-    repo::guardar_item(&*base(&b)?, tipo, &item).map_err(e)
+pub fn guardar_item(c: &Connection, tipo: Catalogo, item: Item) -> R<Item> {
+    repo::guardar_item(c, tipo, &item).map_err(e)
 }
 
-#[tauri::command]
-pub fn borrar_item(b: State<Base>, tipo: Catalogo, id: i64, reasignar_a: Option<i64>) -> R<()> {
-    repo::borrar_item(&*base(&b)?, tipo, id, reasignar_a).map_err(e)
+pub fn borrar_item(c: &Connection, tipo: Catalogo, id: i64, reasignar_a: Option<i64>) -> R<()> {
+    repo::borrar_item(c, tipo, id, reasignar_a).map_err(e)
 }
 
 // ---------- Importar y exportar ----------
 
-/// Abre el diálogo y, si se elige un archivo, lo importa. `None` = cancelado.
-#[tauri::command]
-pub async fn importar_ods(
-    app: tauri::AppHandle,
-    b: State<'_, Base>,
-    forzar: bool,
-) -> R<Option<sueldapp_ods::importar::Informe>> {
-    let Some(ruta) = app
-        .dialog()
-        .file()
-        .set_title("Elige la hoja de cálculo")
-        .add_filter("Hoja de cálculo OpenDocument", &["ods"])
-        .blocking_pick_file()
-    else {
-        return Ok(None);
-    };
-    let ruta = ruta.into_path().map_err(e)?;
-    let mut c = base(&b)?;
-    sueldapp_ods::importar::importar_archivo(&mut c, &ruta, forzar)
-        .map(Some)
-        .map_err(e)
-}
-
-#[tauri::command]
-pub async fn exportar_ods(app: tauri::AppHandle, b: State<'_, Base>) -> R<Option<String>> {
-    let Some(ruta) = app
-        .dialog()
-        .file()
-        .set_title("Guardar exportación")
-        .set_file_name("sueldapp-exportacion.ods")
-        .add_filter("Hoja de cálculo OpenDocument", &["ods"])
-        .blocking_save_file()
-    else {
-        return Ok(None);
-    };
-    let mut ruta = ruta.into_path().map_err(e)?;
-    if ruta.extension().is_none() {
-        ruta.set_extension("ods");
-    }
-    sueldapp_ods::escritura::exportar_ods(&*base(&b)?, &ruta).map_err(e)?;
-    Ok(Some(ruta.display().to_string()))
-}
-
-#[tauri::command]
-pub async fn exportar_csv(app: tauri::AppHandle, b: State<'_, Base>) -> R<Option<Vec<String>>> {
-    let Some(carpeta) = app
-        .dialog()
-        .file()
-        .set_title("Elige la carpeta para los CSV")
-        .blocking_pick_folder()
-    else {
-        return Ok(None);
-    };
-    let carpeta = carpeta.into_path().map_err(e)?;
-    let rutas = sueldapp_ods::csv::exportar_csv(&*base(&b)?, &carpeta).map_err(e)?;
-    Ok(Some(
-        rutas.iter().map(|r| r.display().to_string()).collect(),
-    ))
-}
-
-/// Guarda la plantilla para llenar a mano. `None` = cancelado.
-#[tauri::command]
-pub async fn descargar_plantilla(app: tauri::AppHandle) -> R<Option<String>> {
-    let Some(ruta) = app
-        .dialog()
-        .file()
-        .set_title("Guardar plantilla para llenar")
-        .set_file_name("sueldapp-plantilla.ods")
-        .add_filter("Hoja de cálculo OpenDocument", &["ods"])
-        .blocking_save_file()
-    else {
-        return Ok(None);
-    };
-    let mut ruta = ruta.into_path().map_err(e)?;
-    if ruta.extension().is_none() {
-        ruta.set_extension("ods");
-    }
-    sueldapp_ods::escritura::exportar_plantilla(&ruta).map_err(e)?;
-    Ok(Some(ruta.display().to_string()))
-}
-
-#[tauri::command]
-pub fn historial_importaciones(b: State<Base>) -> R<Vec<repo::Importacion>> {
-    repo::listar_importaciones(&*base(&b)?).map_err(e)
-}
-
 // ---------- Tablero ----------
 
-#[derive(Serialize)]
 pub struct Porcentaje {
-    valor: Decimal,
-    texto: String,
+    pub texto: String,
 }
 
 fn porcentaje(p: Option<Decimal>) -> Option<Porcentaje> {
     p.map(|v| Porcentaje {
-        valor: v,
         texto: format!("{} %", v.to_string().replace('.', ",")),
     })
 }
 
-#[derive(Serialize)]
 pub struct MesTablero {
-    anio: i32,
-    mes: u32,
-    nombre: String,
-    corto: String,
-    ingreso: Monto,
-    gasto: Monto,
-    pagado: Monto,
-    balance: Monto,
-    acumulado: Monto,
-    tasa_ahorro: Option<Porcentaje>,
+    pub nombre: String,
+    pub corto: String,
+    pub ingreso: Monto,
+    pub gasto: Monto,
+    pub pagado: Monto,
+    pub balance: Monto,
+    pub acumulado: Monto,
+    pub tasa_ahorro: Option<Porcentaje>,
 }
 
-#[derive(Serialize)]
 pub struct GrupoVista {
-    nombre: String,
-    monto: Monto,
-    veces: usize,
-    porcentaje: Option<Porcentaje>,
+    pub nombre: String,
+    pub monto: Monto,
+    pub veces: usize,
+    pub porcentaje: Option<Porcentaje>,
 }
 
 fn grupos(v: Vec<sueldapp_dominio::estadisticas::Grupo>, max: usize) -> Vec<GrupoVista> {
@@ -941,55 +743,50 @@ fn grupos(v: Vec<sueldapp_dominio::estadisticas::Grupo>, max: usize) -> Vec<Grup
         .collect()
 }
 
-#[derive(Serialize)]
 pub struct MesValor {
-    nombre: String,
-    monto: Monto,
+    pub nombre: String,
+    pub monto: Monto,
 }
 
-#[derive(Serialize)]
 pub struct Kpis {
-    meses: usize,
-    ingreso: Monto,
-    gasto: Monto,
-    pagado: Monto,
-    por_pagar: Monto,
-    balance: Monto,
-    sobrante: Monto,
-    faltante: Monto,
-    meses_con_sobrante: usize,
-    meses_con_faltante: usize,
-    promedio_ingreso: Monto,
-    promedio_gasto: Monto,
-    promedio_balance: Monto,
-    tasa_ahorro: Option<Porcentaje>,
-    mejor_mes: Option<MesValor>,
-    peor_mes: Option<MesValor>,
-    mes_mayor_gasto: Option<MesValor>,
+    pub meses: usize,
+    pub ingreso: Monto,
+    pub gasto: Monto,
+    pub por_pagar: Monto,
+    pub balance: Monto,
+    pub sobrante: Monto,
+    pub faltante: Monto,
+    pub meses_con_sobrante: usize,
+    pub meses_con_faltante: usize,
+    pub promedio_ingreso: Monto,
+    pub promedio_gasto: Monto,
+    pub promedio_balance: Monto,
+    pub tasa_ahorro: Option<Porcentaje>,
+    pub mejor_mes: Option<MesValor>,
+    pub peor_mes: Option<MesValor>,
+    pub mes_mayor_gasto: Option<MesValor>,
 }
 
-#[derive(Serialize)]
 pub struct DeudaTablero {
-    nombre: String,
-    pendiente: Monto,
-    progreso: Option<Decimal>,
+    pub nombre: String,
+    pub pendiente: Monto,
+    pub progreso: Option<Decimal>,
 }
 
-#[derive(Serialize)]
 pub struct Tablero {
-    desde: Option<String>,
-    hasta: Option<String>,
-    kpis: Kpis,
-    meses: Vec<MesTablero>,
-    por_categoria: Vec<GrupoVista>,
-    por_destino: Vec<GrupoVista>,
-    por_estado: Vec<GrupoVista>,
-    por_fuente: Vec<GrupoVista>,
-    top_conceptos: Vec<GrupoVista>,
-    mayores_gastos: Vec<GastoVista>,
-    deuda_pendiente: Monto,
-    deuda_pagada: Monto,
-    deudas: Vec<DeudaTablero>,
+    pub desde: Option<String>,
+    pub hasta: Option<String>,
+    pub kpis: Kpis,
+    pub meses: Vec<MesTablero>,
+    pub por_categoria: Vec<GrupoVista>,
+    pub por_destino: Vec<GrupoVista>,
+    pub por_estado: Vec<GrupoVista>,
+    pub por_fuente: Vec<GrupoVista>,
+    pub top_conceptos: Vec<GrupoVista>,
+    pub mayores_gastos: Vec<GastoVista>,
+    pub deuda_pendiente: Monto,
+    pub deuda_pagada: Monto,
+    pub deudas: Vec<DeudaTablero>,
 }
 
 fn corto((anio, mes): Periodo) -> String {
@@ -998,25 +795,23 @@ fn corto((anio, mes): Periodo) -> String {
 }
 
 /// Estadísticas de los meses entre `desde` y `hasta` (incluidos), como `[anio, mes]`.
-#[tauri::command]
-pub fn tablero(b: State<Base>, desde: Option<(i32, u32)>, hasta: Option<(i32, u32)>) -> R<Tablero> {
+pub fn tablero(c: &Connection, desde: Option<(i32, u32)>, hasta: Option<(i32, u32)>) -> R<Tablero> {
     use sueldapp_dominio::estadisticas::{acumulado, agrupar, indicadores};
     use sueldapp_dominio::texto::{etiqueta_concepto, raiz_concepto};
-    let c = base(&b)?;
-    let ctx = Contexto::cargar(&c)?;
+    let ctx = Contexto::cargar(c)?;
     let en_rango = |p: Periodo| desde.is_none_or(|d| p >= d) && hasta.is_none_or(|h| p <= h);
-    let meses: Vec<Mes> = repo::listar_meses(&c)
+    let meses: Vec<Mes> = repo::listar_meses(c)
         .map_err(e)?
         .into_iter()
         .filter(|m| en_rango((m.anio, m.mes)))
         .collect();
     let ids: std::collections::HashSet<i64> = meses.iter().filter_map(|m| m.id).collect();
-    let gastos: Vec<Gasto> = repo::todos_gastos(&c)
+    let gastos: Vec<Gasto> = repo::todos_gastos(c)
         .map_err(e)?
         .into_iter()
         .filter(|g| ids.contains(&g.mes_id) && !g.fuera_de_bloque)
         .collect();
-    let ingresos: Vec<Ingreso> = repo::todos_ingresos(&c)
+    let ingresos: Vec<Ingreso> = repo::todos_ingresos(c)
         .map_err(e)?
         .into_iter()
         .filter(|i| ids.contains(&i.mes_id))
@@ -1100,10 +895,10 @@ pub fn tablero(b: State<Base>, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
     mayores.sort_by_key(|g| std::cmp::Reverse(g.monto));
 
     // Deudas: estado actual (no depende del rango).
-    let todos = repo::todos_gastos(&c).map_err(e)?;
+    let todos = repo::todos_gastos(c).map_err(e)?;
     let mut deudas = Vec::new();
     let (mut pendiente, mut pagada) = (Decimal::ZERO, Decimal::ZERO);
-    for d in repo::listar_deudas(&c).map_err(e)? {
+    for d in repo::listar_deudas(c).map_err(e)? {
         let cuotas: Vec<Cuota> = todos
             .iter()
             .filter(|g| g.deuda_id.is_some() && g.deuda_id == d.id)
@@ -1135,7 +930,6 @@ pub fn tablero(b: State<Base>, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
             meses: k.meses,
             ingreso: monto(k.ingreso),
             gasto: monto(k.gasto),
-            pagado: monto(k.pagado),
             por_pagar: monto(k.gasto - k.pagado),
             balance: monto(k.balance),
             sobrante: monto(k.sobrante),
@@ -1154,8 +948,6 @@ pub fn tablero(b: State<Base>, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
             .iter()
             .zip(acum)
             .map(|((p, t), a)| MesTablero {
-                anio: p.0,
-                mes: p.1,
                 nombre: nombre_periodo(*p),
                 corto: corto(*p),
                 ingreso: monto(t.ingreso),
@@ -1178,4 +970,149 @@ pub fn tablero(b: State<Base>, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
         deuda_pagada: monto(pagada),
         deudas,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sueldapp_almacen::abrir_memoria;
+    use sueldapp_dominio::paginacion::Direccion;
+
+    fn gasto(
+        c: &Connection,
+        concepto: &str,
+        monto: &str,
+        mes: u32,
+        deuda_id: Option<i64>,
+    ) -> GastoVista {
+        guardar_gasto(
+            c,
+            GastoEntrada {
+                id: None,
+                anio: 2026,
+                mes,
+                concepto: concepto.into(),
+                monto: monto.into(),
+                estado_id: 2,
+                categoria_id: None,
+                deuda_id,
+                tarjeta_id: None,
+                nota: String::new(),
+                fuera_de_bloque: false,
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn gastos_resumen_y_deshacer() {
+        let c = abrir_memoria().unwrap();
+        let g = gasto(&c, "Arriendo", "950.000", 10, None);
+        assert_eq!(g.monto_texto, "$ 950.000,00");
+        guardar_ingreso(
+            &c,
+            IngresoEntrada {
+                id: None,
+                anio: 2026,
+                mes: 10,
+                fuente_id: 1,
+                monto: "3.200.000".into(),
+                nota: String::new(),
+            },
+        )
+        .unwrap();
+        let r = resumen_mes(&c, 2026, 10).unwrap();
+        assert_eq!(r.totales.restante.texto, "$ 2.250.000,00");
+        assert_eq!(r.proximos.len(), 1);
+        // Monto inválido: error en lenguaje sencillo, nada se guarda.
+        let mal = guardar_gasto(
+            &c,
+            GastoEntrada {
+                id: None,
+                anio: 2026,
+                mes: 10,
+                concepto: "X".into(),
+                monto: "abc".into(),
+                estado_id: 2,
+                categoria_id: None,
+                deuda_id: None,
+                tarjeta_id: None,
+                nota: String::new(),
+                fuera_de_bloque: false,
+            },
+        );
+        assert!(mal.is_err());
+        let borrado = borrar_gasto(&c, g.gasto.id.unwrap()).unwrap();
+        assert!(resumen_mes(&c, 2026, 10).unwrap().proximos.is_empty());
+        restaurar_gasto(&c, borrado).unwrap();
+        assert_eq!(resumen_mes(&c, 2026, 10).unwrap().proximos.len(), 1);
+    }
+
+    #[test]
+    fn paginacion_por_cursor_del_mas_reciente() {
+        let c = abrir_memoria().unwrap();
+        for mes in 1..=12 {
+            gasto(&c, &format!("G{mes}"), "1000", mes, None);
+        }
+        let p1 = buscar_gastos(
+            &c,
+            Filtro {
+                limite: Some(5),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(p1.cantidad, 12);
+        assert_eq!(p1.gastos[0].gasto.concepto, "G12");
+        let p2 = buscar_gastos(
+            &c,
+            Filtro {
+                limite: Some(5),
+                cursor: p1.cursor_siguiente.clone(),
+                direccion: Some(Direccion::Siguiente),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!((p2.desde, p2.hasta), (6, 10));
+        let vuelta = buscar_gastos(
+            &c,
+            Filtro {
+                limite: Some(5),
+                cursor: p2.cursor_anterior.clone(),
+                direccion: Some(Direccion::Anterior),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(vuelta.gastos[0].gasto.concepto, "G12");
+    }
+
+    #[test]
+    fn deudas_y_tablero() {
+        let c = abrir_memoria().unwrap();
+        let d = guardar_deuda(
+            &c,
+            DeudaEntrada {
+                id: None,
+                nombre: "Portátil".into(),
+                total: Some("1.000.000".into()),
+                ajuste: None,
+                saldada: false,
+                notas: String::new(),
+            },
+        )
+        .unwrap();
+        let g = gasto(&c, "Portátil – Cuota 1", "250.000", 9, d.id);
+        let mut pagada = sueldapp_almacen::repo::gasto(&c, g.gasto.id.unwrap()).unwrap();
+        pagada.estado_id = 1;
+        sueldapp_almacen::repo::guardar_gasto(&c, &pagada).unwrap();
+        let v = listar_deudas(&c).unwrap();
+        assert_eq!(v[0].pagado.texto, "$ 250.000,00");
+        assert_eq!(v[0].pendiente.as_ref().unwrap().texto, "$ 750.000,00");
+        let t = tablero(&c, Some((2026, 1)), Some((2026, 12))).unwrap();
+        assert_eq!(t.meses.len(), 1);
+        assert_eq!(t.kpis.gasto.texto, "$ 250.000,00");
+        assert_eq!(t.deuda_pendiente.texto, "$ 750.000,00");
+    }
 }

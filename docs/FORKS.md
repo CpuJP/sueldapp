@@ -27,11 +27,11 @@ Tus reglas personales (tarjetas, alias de deudas, categorías con nombres propio
 
 | Qué | Dónde |
 |---|---|
-| Nombre de la app y del ejecutable | `productName` en `crates/app/tauri.conf.json`, `name` en `crates/app/Cargo.toml` |
-| Identificador único (obligatorio si distribuyes) | `identifier` en `crates/app/tauri.conf.json` (p. ej. `io.github.<tu-usuario>.sueldapp`) |
-| Editor, copyright, página web | `bundle` en `crates/app/tauri.conf.json` |
-| Iconos | `npx @tauri-apps/cli icon <tu-icono-1024.png> -o crates/app/icons` |
-| Colores y estilo | tokens de `:root` en `crates/app/ui/estilos.css` |
+| Nombre de la app y del ejecutable | `product-name` en `[package.metadata.packager]` y `name` en `crates/app/Cargo.toml` |
+| Identificador único (obligatorio si distribuyes) | `identifier` en `[package.metadata.packager]` (p. ej. `io.github.<tu-usuario>.sueldapp`) |
+| Editor, copyright, página web | `[package.metadata.packager]` en `crates/app/Cargo.toml` |
+| Iconos | PNG/ICO en `crates/app/icons/` (mismos nombres) |
+| Colores y estilo | global `Tema` en `crates/app/ui/tema.slint` |
 | Formato de hoja distinto | `crates/ods/src/hoja.rs` (extractor) y `docs/analisis-hoja.md` |
 | Moneda | `crates/dominio/src/formato.rs` |
 
@@ -51,7 +51,7 @@ cargo test --workspace
 El flujo `.github/workflows/release.yml` funciona igual en tu fork:
 
 1. Activa GitHub Actions en tu fork (pestaña **Actions**).
-2. Sube la versión en `crates/app/tauri.conf.json` y anota los cambios en `CHANGELOG.md`.
+2. Sube la versión en `Cargo.toml` (`[workspace.package]`) y anota los cambios en `CHANGELOG.md`.
 3. Crea y empuja una etiqueta: `git tag v0.2.0 && git push origin v0.2.0`.
 4. Revisa el borrador de release que se crea con los instaladores y publícalo.
 

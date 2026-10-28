@@ -16,13 +16,13 @@ contribución debe respetar sus principios (ver [la constitución](.specify/memo
 
 ```bash
 # Fedora
-sudo dnf install webkit2gtk4.1-devel libsoup3-devel gtk3-devel
+sudo dnf install fontconfig-devel libxkbcommon-devel
 # Debian/Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
+sudo apt install libfontconfig1-dev libxkbcommon-dev
 # Rust estable: https://rustup.rs
 ```
 
-En Windows basta con Rust (MSVC) y WebView2, que ya viene en Windows 10/11.
+En Windows basta con Rust (MSVC).
 
 ## Flujo de trabajo
 

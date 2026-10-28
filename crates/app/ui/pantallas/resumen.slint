@@ -1,0 +1,321 @@
+import { Tema } from "../tema.slint";
+import { ResumenD, App } from "../estado.slint";
+import { Vidrio, Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Segmentado, TablaGastos, Paginador, Chip } from "../componentes.slint";
+import { Encabezado, Desplazable, Panel, Heroe, TablaTexto } from "comun.slint";
+
+export component PantallaResumen inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Resumen";
+        Segmentado {
+            etiqueta: "Ver por";
+            opciones: ["Mes", "Año"];
+            indice: ResumenD.modo;
+            cambiado(i) => {
+                ResumenD.cambiar-modo(i);
+            }
+        }
+        Boton {
+            solo-icono: true;
+            icono: Iconos.anterior;
+            etiqueta-accesible: "Periodo anterior (Alt + flecha izquierda)";
+            clicked => {
+                ResumenD.mover(-1);
+            }
+        }
+        Text {
+            text: ResumenD.periodo;
+            min-width: 150px;
+            color: Tema.texto;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: text;
+        }
+        Boton {
+            solo-icono: true;
+            icono: Iconos.siguiente;
+            etiqueta-accesible: "Periodo siguiente (Alt + flecha derecha)";
+            clicked => {
+                ResumenD.mover(1);
+            }
+        }
+        Boton {
+            texto: "Hoy";
+            clicked => {
+                ResumenD.hoy();
+            }
+        }
+    }
+    Desplazable {
+        if App.vacia: Panel {
+            Titulo {
+                text: "Aún no hay datos";
+                horizontal-alignment: center;
+            }
+            Ayuda {
+                text: "Importa tu hoja de cálculo o la plantilla en «Importar y exportar», o crea gastos e ingresos aquí.";
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                Boton {
+                    texto: "Ir a Importar y exportar";
+                    primario: true;
+                    clicked => {
+                        App.navegar(6);
+                    }
+                }
+            }
+        }
+        if !App.vacia && ResumenD.modo == 0 && !ResumenD.existe: Panel {
+            Titulo {
+                text: ResumenD.periodo + " no tiene datos";
+                horizontal-alignment: center;
+            }
+            Ayuda {
+                text: "Añade un ingreso o un gasto para empezar este mes.";
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                spacing: 8px;
+                Boton {
+                    texto: "Añadir ingreso";
+                    primario: true;
+                    clicked => {
+                        ResumenD.nuevo-ingreso();
+                    }
+                }
+                Boton {
+                    texto: "Añadir gasto";
+                    clicked => {
+                        App.nuevo-gasto();
+                    }
+                }
+            }
+        }
+        if !App.vacia && (ResumenD.modo == 1 || ResumenD.existe): Heroe {
+            etiqueta: ResumenD.hero-etiqueta;
+            valor: ResumenD.hero-valor;
+            negativo: ResumenD.hero-negativo;
+            nota: ResumenD.hero-nota;
+            cifras: ResumenD.cifras;
+            if ResumenD.modo == 0: HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                if ResumenD.cerrado: Chip {
+                    texto: "Mes cerrado";
+                }
+                Boton {
+                    texto: "Editar mes";
+                    icono: Iconos.lapiz;
+                    clicked => {
+                        ResumenD.editar-mes();
+                    }
+                }
+            }
+            if ResumenD.modo == 0: VerticalLayout {
+                spacing: 6px;
+                Progreso {
+                    valor: ResumenD.avance;
+                }
+                Ayuda {
+                    text: ResumenD.avance-texto;
+                }
+            }
+        }
+        if !App.vacia && ResumenD.modo == 0 && ResumenD.existe: HorizontalLayout {
+            spacing: 18px;
+            Panel {
+                horizontal-stretch: 13;
+                HorizontalLayout {
+                    Titulo {
+                        text: "Próximos pagos";
+                        horizontal-stretch: 1;
+                    }
+                    Ayuda {
+                        text: ResumenD.pag-proximos.cantidad + " sin pagar";
+                        horizontal-alignment: right;
+                    }
+                }
+                if ResumenD.proximos.length == 0: Ayuda {
+                    text: "Todo pagado este mes.";
+                }
+                for g[i] in ResumenD.proximos: VerticalLayout {
+                    if i > 0: Separador { }
+                    HorizontalLayout {
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        spacing: 12px;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 3px;
+                            alignment: center;
+                            Text {
+                                text: g.titulo;
+                                color: Tema.texto;
+                                font-weight: 600;
+                                overflow: elide;
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: start;
+                                for e in g.etiquetas: Chip {
+                                    texto: e;
+                                }
+                            }
+                        }
+                        Text {
+                            text: g.monto;
+                            color: Tema.texto;
+                            vertical-alignment: center;
+                        }
+                        Boton {
+                            texto: "Marcar pagado";
+                            icono: Iconos.check;
+                            etiqueta-accesible: "Marcar pagado: " + g.titulo;
+                            clicked => {
+                                ResumenD.marcar-pagado(g.id);
+                            }
+                        }
+                    }
+                }
+                Paginador {
+                    compacto: true;
+                    pagina: ResumenD.pag-proximos;
+                    tam-indice: App.tam-pagina;
+                    anterior => {
+                        ResumenD.paginar("proximos", false);
+                    }
+                    siguiente => {
+                        ResumenD.paginar("proximos", true);
+                    }
+                    cambiar-tam(i) => {
+                        App.cambiar-tam(i);
+                    }
+                }
+            }
+            Panel {
+                horizontal-stretch: 10;
+                HorizontalLayout {
+                    Titulo {
+                        text: "Ingresos";
+                        horizontal-stretch: 1;
+                        vertical-alignment: center;
+                    }
+                    Boton {
+                        texto: "Añadir";
+                        icono: Iconos.mas;
+                        etiqueta-accesible: "Añadir ingreso";
+                        clicked => {
+                            ResumenD.nuevo-ingreso();
+                        }
+                    }
+                }
+                if ResumenD.ingresos.length == 0: Ayuda {
+                    text: "Sin ingresos registrados.";
+                }
+                for l[i] in ResumenD.ingresos: VerticalLayout {
+                    if i > 0: Separador { }
+                    HorizontalLayout {
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        spacing: 12px;
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            Text {
+                                text: l.titulo;
+                                color: Tema.texto;
+                                font-weight: 600;
+                            }
+                            if l.sub != "": Ayuda {
+                                text: l.sub;
+                                font-size: 13px;
+                            }
+                        }
+                        Text {
+                            text: l.monto;
+                            color: Tema.texto;
+                            vertical-alignment: center;
+                        }
+                        Boton {
+                            solo-icono: true;
+                            icono: Iconos.lapiz;
+                            etiqueta-accesible: "Editar ingreso " + l.titulo;
+                            clicked => {
+                                ResumenD.editar-ingreso(ResumenD.ingresos-ids[i]);
+                            }
+                        }
+                    }
+                }
+                Paginador {
+                    compacto: true;
+                    pagina: ResumenD.pag-ingresos;
+                    tam-indice: App.tam-pagina;
+                    anterior => {
+                        ResumenD.paginar("ingresos", false);
+                    }
+                    siguiente => {
+                        ResumenD.paginar("ingresos", true);
+                    }
+                    cambiar-tam(i) => {
+                        App.cambiar-tam(i);
+                    }
+                }
+            }
+        }
+        if !App.vacia && ResumenD.modo == 0 && ResumenD.existe: Panel {
+            HorizontalLayout {
+                Titulo {
+                    text: "Gastos de " + ResumenD.periodo;
+                    horizontal-stretch: 1;
+                    vertical-alignment: center;
+                }
+                Boton {
+                    texto: "Nuevo gasto";
+                    icono: Iconos.mas;
+                    primario: true;
+                    clicked => {
+                        App.nuevo-gasto();
+                    }
+                }
+            }
+            TablaGastos {
+                filas: ResumenD.gastos;
+                con-mes: false;
+                total: ResumenD.total;
+                abrir(id) => {
+                    App.abrir-gasto(id);
+                }
+            }
+            Paginador {
+                pagina: ResumenD.pag-gastos;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    ResumenD.paginar("gastos", false);
+                }
+                siguiente => {
+                    ResumenD.paginar("gastos", true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+        if !App.vacia && ResumenD.modo == 1: Panel {
+            Titulo {
+                text: "Mes a mes";
+            }
+            TablaTexto {
+                encabezados: ["Mes", "Ingresos", "Gastos", "Pagado", "Restante"];
+                filas: ResumenD.anio;
+                activable: true;
+                fila-activada(i) => {
+                    ResumenD.abrir-mes-de-anio(i);
+                }
+            }
+        }
+    }
+}

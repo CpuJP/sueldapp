@@ -1,0 +1,391 @@
+import { AboutSlint } from "std-widgets.slint";
+import { Tema } from "../tema.slint";
+import { CatsD, DatosD, App, ItemFila, Pagina } from "../estado.slint";
+import { Boton, Iconos, Campo, Separador, Ayuda, Titulo, Paginador, Interruptor, Casilla, Segmentado, EstadoChip } from "../componentes.slint";
+import { Encabezado, Desplazable, Panel, Cifras, TablaTexto } from "comun.slint";
+import { ListaLineas } from "tablero.slint";
+
+component SeccionCatalogo inherits Panel {
+    in property <int> tipo;
+    in property <string> titulo;
+    in property <string> ayuda;
+    in property <[ItemFila]> items;
+    in property <Pagina> pagina;
+    in-out property <string> nuevo;
+    Titulo {
+        text: root.titulo;
+    }
+    Ayuda {
+        text: root.ayuda;
+    }
+    for x[i] in root.items: VerticalLayout {
+        if i > 0: Separador { }
+        HorizontalLayout {
+            padding-top: 8px;
+            padding-bottom: 8px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                Text {
+                    text: x.nombre;
+                    color: Tema.texto;
+                    font-weight: 600;
+                }
+                if x.sub != "": Ayuda {
+                    text: x.sub;
+                    font-size: 13px;
+                }
+            }
+            Boton {
+                solo-icono: true;
+                icono: Iconos.lapiz;
+                etiqueta-accesible: "Editar " + x.nombre;
+                clicked => {
+                    CatsD.editar(root.tipo, x.id);
+                }
+            }
+        }
+    }
+    Paginador {
+        compacto: true;
+        pagina: root.pagina;
+        tam-indice: App.tam-pagina;
+        anterior => {
+            CatsD.paginar(root.tipo, false);
+        }
+        siguiente => {
+            CatsD.paginar(root.tipo, true);
+        }
+        cambiar-tam(i) => {
+            App.cambiar-tam(i);
+        }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        padding-top: 6px;
+        Campo {
+            etiqueta: "Nuevo elemento en " + root.titulo;
+            marcador: "Nuevo…";
+            texto <=> root.nuevo;
+            aceptado => {
+                CatsD.agregar(root.tipo, root.nuevo);
+                root.nuevo = "";
+            }
+        }
+        Boton {
+            texto: "Añadir";
+            icono: Iconos.mas;
+            clicked => {
+                CatsD.agregar(root.tipo, root.nuevo);
+                root.nuevo = "";
+            }
+        }
+    }
+}
+
+export component PantallaCatalogos inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Catálogos";
+    }
+    Desplazable {
+        HorizontalLayout {
+            spacing: 18px;
+            alignment: stretch;
+            SeccionCatalogo {
+                tipo: 0;
+                titulo: "Estados";
+                ayuda: "Los estados que cuentan como pagado suman en «Ya pagado».";
+                items: CatsD.estados;
+                pagina: CatsD.pag-estados;
+            }
+            SeccionCatalogo {
+                tipo: 1;
+                titulo: "Categorías";
+                ayuda: "Para agrupar y filtrar gastos.";
+                items: CatsD.categorias;
+                pagina: CatsD.pag-categorias;
+            }
+            SeccionCatalogo {
+                tipo: 2;
+                titulo: "Fuentes de ingreso";
+                ayuda: "Sueldo, prima y otros ingresos.";
+                items: CatsD.fuentes;
+                pagina: CatsD.pag-fuentes;
+            }
+        }
+    }
+}
+
+export component PantallaDatos inherits VerticalLayout {
+    property <bool> log-abierto: false;
+    spacing: 18px;
+    Encabezado {
+        titulo: "Importar y exportar";
+    }
+    Desplazable {
+        Panel {
+            Titulo {
+                text: "Importar";
+            }
+            Ayuda {
+                text: "Elige tu hoja original, una plantilla llena o una exportación de Sueldapp. El archivo solo se lee. Si algo no cuadra, no se guarda nada. Importar una exportación de Sueldapp reemplaza todos los datos; una plantilla los suma.";
+            }
+            Casilla {
+                texto: "Volver a importar aunque el archivo ya se haya importado";
+                marcada <=> DatosD.forzar;
+            }
+            HorizontalLayout {
+                alignment: start;
+                Boton {
+                    texto: "Elegir archivo e importar";
+                    primario: true;
+                    clicked => {
+                        DatosD.importar();
+                    }
+                }
+            }
+        }
+        if DatosD.hay-informe: Panel {
+            Titulo {
+                text: "Informe de importación";
+            }
+            Text {
+                text: DatosD.informe-titulo;
+                color: DatosD.informe-ok ? Tema.positivo : Tema.negativo;
+                font-weight: 700;
+                wrap: word-wrap;
+                accessible-role: text;
+            }
+            Cifras {
+                columnas: 4;
+                cifras: DatosD.informe-datos;
+            }
+            if DatosD.diferencias.length > 0: Titulo {
+                text: "Diferencias";
+                font-size: 15px;
+            }
+            if DatosD.diferencias.length > 0: TablaTexto {
+                encabezados: ["Valor", "Hoja", "App"];
+                filas: DatosD.diferencias;
+            }
+            if DatosD.aceptadas.length > 0: Titulo {
+                text: "Diferencias aceptadas por ti";
+                font-size: 15px;
+            }
+            if DatosD.aceptadas.length > 0: Ayuda {
+                text: "Deudas sin fórmula de pago en la hoja: su total se calcula con sus cuotas (decisión tuya).";
+            }
+            if DatosD.aceptadas.length > 0: TablaTexto {
+                encabezados: ["Valor", "Hoja", "App"];
+                filas: DatosD.aceptadas;
+            }
+            HorizontalLayout {
+                alignment: start;
+                Boton {
+                    texto: root.log-abierto ? "Ocultar el registro detallado" : DatosD.log-titulo;
+                    icono: Iconos.chevron;
+                    clicked => {
+                        root.log-abierto = !root.log-abierto;
+                    }
+                }
+            }
+            if root.log-abierto: VerticalLayout {
+                for l in DatosD.log: HorizontalLayout {
+                    spacing: 10px;
+                    padding-top: 4px;
+                    padding-bottom: 4px;
+                    Text {
+                        width: 160px;
+                        text: l.origen;
+                        color: Tema.texto-2;
+                        font-size: 13px;
+                        overflow: elide;
+                    }
+                    Text {
+                        width: 100px;
+                        text: l.accion;
+                        color: Tema.texto-2;
+                        font-size: 13px;
+                    }
+                    Text {
+                        text: l.detalle;
+                        color: Tema.texto;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                        horizontal-stretch: 1;
+                    }
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Plantilla para llenar a mano";
+            }
+            Ayuda {
+                text: "Descarga una hoja de cálculo con las columnas listas (gastos, ingresos, deudas y tarjetas) y las instrucciones. Llénala en LibreOffice, Excel o Google Sheets, guárdala como .ods y cárgala arriba con «Elegir archivo e importar». Suma datos a los que ya tienes; no borra nada.";
+            }
+            HorizontalLayout {
+                alignment: start;
+                Boton {
+                    texto: "Descargar plantilla";
+                    clicked => {
+                        DatosD.plantilla();
+                    }
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Exportar";
+            }
+            Ayuda {
+                text: "Guarda una copia de todos tus datos para abrirla en cualquier hoja de cálculo o para volver a importarla.";
+            }
+            HorizontalLayout {
+                alignment: start;
+                spacing: 8px;
+                Boton {
+                    texto: "Exportar a .ods";
+                    clicked => {
+                        DatosD.exportar-ods();
+                    }
+                }
+                Boton {
+                    texto: "Exportar a .csv (una carpeta)";
+                    clicked => {
+                        DatosD.exportar-csv();
+                    }
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Historial de importaciones";
+            }
+            ListaLineas {
+                lineas: DatosD.historial;
+                vacio: "Aún no hay importaciones.";
+            }
+            Paginador {
+                pagina: DatosD.pag-historial;
+                tam-indice: App.tam-pagina;
+                anterior => {
+                    DatosD.paginar(false);
+                }
+                siguiente => {
+                    DatosD.paginar(true);
+                }
+                cambiar-tam(i) => {
+                    App.cambiar-tam(i);
+                }
+            }
+        }
+    }
+}
+
+component FilaAjuste inherits HorizontalLayout {
+    in property <string> titulo;
+    in property <string> ayuda;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    spacing: 18px;
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        spacing: 2px;
+        Text {
+            text: root.titulo;
+            color: Tema.texto-2;
+            font-weight: 600;
+            font-size: 13.5px;
+        }
+        Ayuda {
+            text: root.ayuda;
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 0;
+        @children
+    }
+}
+
+export component PantallaAjustes inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Ajustes";
+    }
+    Desplazable {
+        Panel {
+            Titulo {
+                text: "Apariencia";
+            }
+            FilaAjuste {
+                titulo: "Reducir transparencia";
+                ayuda: "Cambia el vidrio por superficies sólidas. Mejora la lectura.";
+                Interruptor {
+                    etiqueta: "Reducir transparencia";
+                    activo <=> Tema.solido;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            Separador { }
+            FilaAjuste {
+                titulo: "Reducir movimiento";
+                ayuda: "Quita las animaciones.";
+                Interruptor {
+                    etiqueta: "Reducir movimiento";
+                    activo <=> Tema.sin-movimiento;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            Separador { }
+            FilaAjuste {
+                titulo: "Tema";
+                ayuda: "Claro, oscuro o el mismo de tu sistema.";
+                Segmentado {
+                    etiqueta: "Tema";
+                    opciones: ["Sistema", "Claro", "Oscuro"];
+                    iconos: [Iconos.sistema, Iconos.sol, Iconos.luna];
+                    indice <=> Tema.modo;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Tus datos";
+            }
+            Ayuda {
+                text: "Todo se guarda solo en este equipo. La app no se conecta a internet.";
+            }
+            Text {
+                text: "Base de datos: " + App.ruta-base;
+                color: Tema.texto;
+                wrap: word-wrap;
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Hecho con Slint";
+            }
+            Ayuda {
+                text: "La interfaz de Sueldapp usa Slint bajo su licencia Royalty-free 2.0.";
+            }
+            HorizontalLayout {
+                alignment: start;
+                AboutSlint {
+                    width: 200px;
+                    height: 110px;
+                }
+            }
+        }
+    }
+}

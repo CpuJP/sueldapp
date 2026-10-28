@@ -1,0 +1,51 @@
+// Tokens de diseño: traducción directa de los de `estilos.css` de la versión web.
+import { Palette } from "std-widgets.slint";
+
+export global Tema {
+    // 0 = según el sistema, 1 = claro, 2 = oscuro.
+    in-out property <int> modo: 0;
+    in-out property <bool> solido: false;
+    in-out property <bool> sin-movimiento: false;
+    out property <bool> oscuro: modo == 2 || (modo == 0 && Palette.color-scheme == ColorScheme.dark);
+
+    out property <length> radio-l: 24px;
+    out property <length> radio-m: 16px;
+    out property <length> radio-s: 11px;
+    out property <duration> rapido: sin-movimiento ? 0ms : 160ms;
+
+    out property <color> fondo: oscuro ? #0c1315 : #dfe7e6;
+    out property <color> mancha-1: oscuro ? #11665c : #6cc3b5;
+    out property <color> mancha-2: oscuro ? #7a5310 : #f2bf6b;
+    out property <color> mancha-3: oscuro ? #6e2f22 : #ee9a7f;
+    out property <color> mancha-4: oscuro ? #2f5a37 : #9cc7a0;
+
+    out property <color> texto: oscuro ? #eef4f4 : #0f1a1c;
+    out property <color> texto-2: oscuro ? #c2cfd1 : #3c4b50;
+    out property <color> texto-3: oscuro ? #a9b8bb : #4f5f64;
+    out property <color> borde-suave: oscuro ? #eef4f424 : #0f1a1c1f;
+
+    out property <color> vidrio: solido ? (oscuro ? #172124 : #f4f7f7) : (oscuro ? #161f2294 : #fafcfc9e);
+    out property <color> vidrio-fuerte: solido ? (oscuro ? #1d282b : #ffffff) : (oscuro ? #182124f7 : #f6f9f9f7);
+    out property <color> vidrio-hundido: solido ? (oscuro ? #111a1c : #e7eded) : (oscuro ? #00000038 : #ffffff73);
+    out property <color> vidrio-borde: solido ? (oscuro ? #2f3e42 : #c9d4d4) : (oscuro ? #ffffff24 : #ffffffbf);
+    out property <color> brillo: solido ? transparent : (oscuro ? #ffffff38 : #ffffffe6);
+    out property <color> brillo-bajo: solido ? transparent : (oscuro ? #ffffff0a : #ffffff40);
+    out property <color> sombra: oscuro ? #000000b3 : #122c306b;
+
+    out property <color> acento: oscuro ? #5fd3c4 : #0b6b62;
+    out property <color> acento-texto: oscuro ? #04221f : #ffffff;
+    out property <color> acento-suave: oscuro ? #5fd3c429 : #0b6b621f;
+    out property <color> positivo: oscuro ? #7fdc9d : #126b35;
+    out property <color> negativo: oscuro ? #ff9b91 : #a52019;
+    out property <color> negativo-suave: oscuro ? #ff9b9124 : #a520191a;
+    out property <color> aviso: oscuro ? #ffcf7a : #7a4b00;
+    out property <color> aviso-suave: oscuro ? #ffcf7a24 : #c2780024;
+
+    // Gráficos (paleta validada con la herramienta de dataviz).
+    out property <color> serie-1: oscuro ? #3987e5 : #2a78d6;
+    out property <color> serie-2: oscuro ? #d95926 : #eb6834;
+    out property <color> polo-neg: oscuro ? #e66767 : #e34948;
+    out property <color> rejilla: oscuro ? #ffffff14 : #0f1a1c1a;
+    out property <color> base-eje: oscuro ? #ffffff4d : #0f1a1c59;
+    out property <color> moneda: #f6c768;
+}

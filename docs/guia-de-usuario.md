@@ -34,7 +34,6 @@ Es lo primero que ves al abrir la app. Resume todo tu dinero en el periodo que e
 - **Ver los datos de los gráficos en tabla:** todas las cifras en una tabla.
 
 ![Tablero](capturas/tablero-claro.png)
-![Elegir el periodo](capturas/tablero-calendario-claro.png)
 ![Gráficos del tablero](capturas/tablero-2-claro.png)
 ![Tablero en modo oscuro](capturas/tablero-2-oscuro.png)
 

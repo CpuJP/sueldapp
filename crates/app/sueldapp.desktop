@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Sueldapp
+Comment=Finanzas personales: sueldo, gastos, deudas y tarjetas
+Exec=sueldapp
+Icon=sueldapp
+Terminal=false
+Categories=Office;Finance;
+StartupWMClass=sueldapp
