@@ -29,4 +29,4 @@ capturas = ["dep:webkit2gtk", "dep:cairo-rs"]
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = { version = "=2.0.2", optional = true }
-cairo-rs = { version = "0.18", features = ["png"], optional = true }
+cairo-rs = { version = "0.22", features = ["png"], optional = true }
