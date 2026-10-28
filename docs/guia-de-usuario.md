@@ -101,8 +101,9 @@ Si borras un estado o una fuente que está en uso, la app te pide a cuál pasan 
 ## 8. Plantilla para llenar a mano
 
 En **Importar y exportar → Descargar plantilla** obtienes un `.ods` con hojas listas: Gastos,
-Ingresos, Deudas y Tarjetas, más las instrucciones y una hoja *Listas* con los estados, categorías y
-fuentes que ya existen en la app.
+Ingresos, Deudas y Tarjetas, más las instrucciones y una hoja *Listas* con los estados, las fuentes
+de ingreso y los meses. La plantilla es igual para todos: no lleva ningún dato tuyo, así que puedes
+compartirla.
 
 1. Llena una fila por registro. Año con 4 cifras; mes como número (10) o nombre (Octubre); montos
    como `150000`, `150.000` o `150000,50`.

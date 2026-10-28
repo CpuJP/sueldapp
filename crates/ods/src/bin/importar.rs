@@ -2,7 +2,7 @@
 //!
 //! Uso: `importar <archivo.ods> [--forzar] [--db <ruta.sqlite3>]`
 //!      `importar --categorizar [--db <ruta.sqlite3>]` (categoriza los gastos sin categoría)
-//!      `importar --plantilla <salida.ods> [--db <ruta.sqlite3>]` (guarda la plantilla para llenar)
+//!      `importar --plantilla <salida.ods>` (guarda la plantilla para llenar)
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -30,10 +30,7 @@ fn main() -> ExitCode {
         }
     }
     if let Some(salida) = plantilla {
-        let r = sueldapp_almacen::abrir(&db)
-            .map_err(sueldapp_ods::Error::from)
-            .and_then(|c| sueldapp_ods::escritura::exportar_plantilla(&c, &salida));
-        return match r {
+        return match sueldapp_ods::escritura::exportar_plantilla(&salida) {
             Ok(()) => {
                 println!("Plantilla guardada en {}", salida.display());
                 ExitCode::SUCCESS

@@ -554,3 +554,5 @@ details .paginador { margin-bottom: 10px; }
 .interruptor:not(:checked) { background: rgba(15, 26, 28, 0.28); }
 @media (prefers-color-scheme: dark) { :root:not([data-tema="claro"]) .interruptor:not(:checked) { background: rgba(255, 255, 255, 0.16); } }
 :root[data-tema="oscuro"] .interruptor:not(:checked) { background: rgba(255, 255, 255, 0.16); }
+
+.marca-moneda { fill: #f6c768; stroke: var(--acento-texto); stroke-width: 1.2; }

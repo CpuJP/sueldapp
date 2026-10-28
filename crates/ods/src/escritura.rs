@@ -390,8 +390,8 @@ pub fn exportar_ods(c: &Connection, ruta: &std::path::Path) -> Result<(), Error>
     escribir_ods(&t, f)
 }
 
-pub fn exportar_plantilla(c: &Connection, ruta: &std::path::Path) -> Result<(), Error> {
-    let t = crate::plantilla::tablas_plantilla(c)?;
+pub fn exportar_plantilla(ruta: &std::path::Path) -> Result<(), Error> {
+    let t = crate::plantilla::tablas_plantilla();
     let f = std::fs::File::create(ruta)?;
     escribir_ods(&t, f)
 }

@@ -41,65 +41,35 @@ fn texto(t: &str) -> Dato {
     Dato::Texto(t.to_string())
 }
 
-/// Hojas de la plantilla. `Listas` muestra los nombres válidos que ya existen en la app.
-pub fn tablas_plantilla(c: &Connection) -> Result<Vec<Tabla>, Error> {
+/// Hojas de la plantilla. Es siempre la misma para cualquier persona: **nunca** incluye datos
+/// de la base (nombres de deudas, tarjetas o categorías propias), porque una plantilla se comparte.
+pub fn tablas_plantilla() -> Vec<Tabla> {
     let instrucciones = [
         "Plantilla de Sueldapp para llenar a mano.",
         "",
         "1. Llena las hojas Gastos, Ingresos, Deudas y Tarjetas. Una fila por registro; deja la fila de títulos.",
         "2. Año: 4 cifras (2026). Mes: número (1-12) o nombre (Octubre).",
         "3. Montos en pesos: 150000, 150.000 o 150000,50. Máximo 2 decimales.",
-        "4. Estado: Pagado, Pendiente, No, Aplazado o Sin estado (vacío = Pendiente). Mira la hoja Listas.",
-        "5. Categoría, Deuda, Tarjeta y Fuente: escribe el nombre. Si no existe, la app lo crea.",
+        "4. Estado: Pagado, Pendiente, No, Aplazado o Sin estado (vacío = Pendiente), o un estado que hayas creado en la app.",
+        "5. Categoría, Deuda, Tarjeta y Fuente: escribe el nombre tal como está en la app. Si no existe, la app lo crea.",
         "6. En la app: Importar y exportar > Elegir archivo e importar.",
         "",
         "Si alguna fila tiene un error, no se guarda nada y el informe dice qué fila corregir.",
         "Importar el mismo contenido dos veces no duplica datos. La plantilla suma datos; no borra nada.",
     ];
-    let lista = |v: Vec<String>| v;
-    let estados = lista(
-        repo::listar_estados(c)?
-            .into_iter()
-            .map(|e| e.nombre)
-            .collect(),
-    );
-    let categorias = lista(
-        repo::listar_items(c, Catalogo::Categorias)?
-            .into_iter()
-            .map(|e| e.nombre)
-            .collect(),
-    );
-    let fuentes = lista(
-        repo::listar_items(c, Catalogo::Fuentes)?
-            .into_iter()
-            .map(|e| e.nombre)
-            .collect(),
-    );
-    let deudas = lista(
-        repo::listar_deudas(c)?
-            .into_iter()
-            .map(|e| e.nombre)
-            .collect(),
-    );
-    let tarjetas = lista(
-        repo::listar_tarjetas(c)?
-            .into_iter()
-            .map(|e| e.nombre)
-            .collect(),
-    );
-    let columnas = [&estados, &categorias, &fuentes, &deudas, &tarjetas];
-    let filas_listas = (0..columnas.iter().map(|c| c.len()).max().unwrap_or(0).max(12))
+    const ESTADOS: [&str; 5] = ["Pagado", "Pendiente", "No", "Aplazado", "Sin estado"];
+    const FUENTES: [&str; 3] = ["Sueldo", "Prima", "Otro"];
+    let filas_listas = (0..12)
         .map(|i| {
-            let mut f: Vec<Dato> = columnas
-                .iter()
-                .map(|c| c.get(i).map(|s| texto(s)).unwrap_or(Dato::Vacio))
-                .collect();
-            f.push(NOMBRES_MES.get(i).map(|m| texto(m)).unwrap_or(Dato::Vacio));
-            f
+            vec![
+                ESTADOS.get(i).map(|s| texto(s)).unwrap_or(Dato::Vacio),
+                FUENTES.get(i).map(|s| texto(s)).unwrap_or(Dato::Vacio),
+                texto(NOMBRES_MES[i]),
+            ]
         })
         .collect();
 
-    Ok(vec![
+    vec![
         Tabla {
             nombre: INSTRUCCIONES,
             encabezados: vec!["Cómo usar esta plantilla"],
@@ -127,17 +97,10 @@ pub fn tablas_plantilla(c: &Connection) -> Result<Vec<Tabla>, Error> {
         },
         Tabla {
             nombre: "Listas",
-            encabezados: vec![
-                "Estados",
-                "Categorías",
-                "Fuentes",
-                "Deudas",
-                "Tarjetas",
-                "Meses",
-            ],
+            encabezados: vec!["Estados", "Fuentes de ingreso", "Meses"],
             filas: filas_listas,
         },
-    ])
+    ]
 }
 
 pub fn es_plantilla(hojas: &[Hoja]) -> bool {
@@ -684,8 +647,7 @@ mod tests {
     }
 
     fn plantilla_llena(gastos: Vec<Vec<Dato>>) -> Vec<u8> {
-        let c = sueldapp_almacen::abrir_memoria().unwrap();
-        let mut t = tablas_plantilla(&c).unwrap();
+        let mut t = tablas_plantilla();
         t.iter_mut().find(|t| t.nombre == "Gastos").unwrap().filas = gastos;
         t.iter_mut().find(|t| t.nombre == "Ingresos").unwrap().filas = vec![vec![
             Dato::Numero(2026.into()),
@@ -748,6 +710,31 @@ mod tests {
         assert!(otra.ok);
         assert_eq!(repo::todos_gastos(&c).unwrap().len(), 4);
         assert_eq!(repo::todos_ingresos(&c).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn la_plantilla_no_lleva_datos_de_la_base() {
+        // Aunque la base tenga deudas y tarjetas, la plantilla es la misma para todos.
+        let t = tablas_plantilla();
+        let todo: String = t
+            .iter()
+            .flat_map(|t| t.filas.iter().flatten())
+            .filter_map(|d| match d {
+                Dato::Texto(s) => Some(s.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("|");
+        assert!(!todo.contains("Tarjeta Verde"));
+        assert!(t.iter().all(|t| t.nombre != "Deudas" || t.filas.is_empty()));
+        assert_eq!(
+            t.iter()
+                .find(|t| t.nombre == "Listas")
+                .unwrap()
+                .encabezados
+                .len(),
+            3
+        );
     }
 
     #[test]

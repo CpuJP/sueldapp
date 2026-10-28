@@ -6,6 +6,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Cambiado
+
+- Nuevo ícono de la app (tablero con moneda, estilo vidrio) en todos los tamaños y en la barra lateral.
+- La plantilla para llenar a mano ya no incluye datos de la base (nombres de deudas, tarjetas,
+  categorías o fuentes propias): es igual para todos y se puede compartir.
+
 ## [0.1.0-alpha.1] - 2026-10-28
 
 Primera versión alpha.

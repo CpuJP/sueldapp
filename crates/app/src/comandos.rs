@@ -868,7 +868,7 @@ pub async fn exportar_csv(app: tauri::AppHandle, b: State<'_, Base>) -> R<Option
 
 /// Guarda la plantilla para llenar a mano. `None` = cancelado.
 #[tauri::command]
-pub async fn descargar_plantilla(app: tauri::AppHandle, b: State<'_, Base>) -> R<Option<String>> {
+pub async fn descargar_plantilla(app: tauri::AppHandle) -> R<Option<String>> {
     let Some(ruta) = app
         .dialog()
         .file()
@@ -883,7 +883,7 @@ pub async fn descargar_plantilla(app: tauri::AppHandle, b: State<'_, Base>) -> R
     if ruta.extension().is_none() {
         ruta.set_extension("ods");
     }
-    sueldapp_ods::escritura::exportar_plantilla(&*base(&b)?, &ruta).map_err(e)?;
+    sueldapp_ods::escritura::exportar_plantilla(&ruta).map_err(e)?;
     Ok(Some(ruta.display().to_string()))
 }
 
