@@ -8,7 +8,7 @@
 Sueldo, gastos del mes, deudas a cuotas y tarjetas de crédito, con un tablero de estadísticas.
 
 [![CI](https://github.com/CpuJP/sueldapp/actions/workflows/ci.yml/badge.svg)](https://github.com/CpuJP/sueldapp/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/CpuJP/sueldapp?include_prereleases&label=versi%C3%B3n)](https://github.com/CpuJP/sueldapp/releases)
+[![Release](https://img.shields.io/github/v/release/CpuJP/sueldapp?label=versi%C3%B3n)](https://github.com/CpuJP/sueldapp/releases)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 ![Plataformas](https://img.shields.io/badge/plataformas-Linux%20%7C%20Windows%20(x64%20%2B%20ARM64)-informational)
 
@@ -33,7 +33,7 @@ importa la hoja, comprueba que cada total coincide **al centavo** y desde ahí t
 | | |
 |---|---|
 | **Tablero** | Ingresos vs. gastos por mes, lo que sobra o falta, saldo acumulado, tasa de ahorro, promedios, mejor y peor mes, gasto por categoría, destino, estado y concepto. Periodo con calendario y por años. |
-| **Resumen** | El mes o el año: ingresos, gastos, lo pagado, lo que queda y los próximos pagos (márcalos pagados con un clic). |
+| **Resumen** | El mes o el año: ingresos, gastos, lo pagado, lo que queda y los próximos pagos (márcalos pagados con un clic y deshaz si te equivocas). |
 | **Movimientos** | Búsqueda sin tildes, filtros por año, mes, estado, categoría, deuda y tarjeta; paginación por cursor. |
 | **Deudas** | Total, pagado, pendiente (o "pagado de más"), progreso, cuotas y mes estimado de fin. |
 | **Tarjetas** | Cupo, saldo, disponible, día de corte y de pago, y sus pagos. |
@@ -52,24 +52,24 @@ Descarga el instalador de tu sistema en [**Releases**](https://github.com/CpuJP/
 
 | Sistema | x64 (Intel/AMD) | ARM64 |
 |---|---|---|
-| **Windows 10/11** | `Sueldapp_<versión>_x64-setup.exe` o `.msi` | `Sueldapp_<versión>_arm64-setup.exe` |
-| **Debian, Ubuntu, Mint** | `Sueldapp_<versión>_amd64.deb` | `Sueldapp_<versión>_arm64.deb` |
-| **Fedora, openSUSE** | `Sueldapp-<versión>-1.x86_64.rpm` | `Sueldapp-<versión>-1.aarch64.rpm` |
-| **Cualquier Linux** | `Sueldapp_<versión>_amd64.AppImage` | — |
+| **Windows 10/11** | `sueldapp_<versión>_x64-setup.exe` o `sueldapp_<versión>_x64_es-ES.msi` | `sueldapp_<versión>_arm64-setup.exe` |
+| **Debian, Ubuntu, Mint** | `sueldapp_<versión>_amd64.deb` | `sueldapp_<versión>_arm64.deb` |
+| **Fedora, openSUSE** | `sueldapp-<versión>-1.x86_64.rpm` | `sueldapp-<versión>-1.aarch64.rpm` |
+| **Cualquier Linux** | `sueldapp_<versión>_x86_64.AppImage` | — |
 
 ```bash
 # Debian/Ubuntu
-sudo apt install ./Sueldapp_*_amd64.deb
+sudo apt install ./sueldapp_*_amd64.deb
 # Fedora
-sudo dnf install ./Sueldapp-*.x86_64.rpm
+sudo dnf install ./sueldapp-*.x86_64.rpm
 # AppImage
-chmod +x Sueldapp_*.AppImage && ./Sueldapp_*.AppImage
+chmod +x sueldapp_*.AppImage && ./sueldapp_*.AppImage
 ```
 
 Verifica la descarga con `SHA256SUMS.txt` (`sha256sum -c SHA256SUMS.txt --ignore-missing`).
 Los instaladores aún no están firmados: Windows puede mostrar un aviso de SmartScreen.
 
-> **Estado: alpha.** Haz copias de tus datos (Importar y exportar → Exportar a `.ods`).
+> Haz copias de tus datos de vez en cuando (Importar y exportar → Exportar a `.ods`).
 
 ## Empezar
 
@@ -86,6 +86,7 @@ Tus datos quedan en:
 | Linux | `~/.local/share/sueldapp/` |
 | Windows | `%APPDATA%\sueldapp\` |
 
+En esa carpeta están la base (`sueldapp.sqlite3`) y tus ajustes de apariencia (`ajustes.txt`).
 Allí también puedes poner `reglas.txt` con tus reglas de categorías y tarjetas
 ([ejemplo](docs/ejemplos/reglas.ejemplo.txt)).
 
@@ -148,6 +149,7 @@ La interfaz está hecha con [Slint](https://slint.dev) bajo su licencia
 **Sueldapp** is a local-first, private desktop app for personal finances (salary, monthly expenses,
 installment debts and credit cards) with a statistics dashboard. It imports a specific spreadsheet
 layout with exact reconciliation, offers a fill-in template, and exports to `.ods`/`.csv`. Built with
-Rust and a native [Slint](https://slint.dev) UI; no network access at runtime; exact decimal money. Installers for Linux and Windows
-on x64 and ARM64 are available in [Releases](https://github.com/CpuJP/sueldapp/releases).
+Rust and a native [Slint](https://slint.dev) UI (single process, ~40–50 MiB of memory); no network
+access at runtime; exact decimal money. Installers for Linux and Windows on x64 and ARM64 are
+available in [Releases](https://github.com/CpuJP/sueldapp/releases).
 The UI and docs are in Spanish. MIT licensed.

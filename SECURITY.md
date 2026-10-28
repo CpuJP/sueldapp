@@ -2,7 +2,8 @@
 
 ## Versiones con soporte
 
-Solo la última versión publicada recibe correcciones de seguridad mientras el proyecto esté en alpha.
+Solo la última versión estable publicada recibe correcciones de seguridad. Las preversiones
+(`-alpha`, `-beta`) no tienen soporte.
 
 ## Cómo reportar una vulnerabilidad
 
@@ -14,9 +15,9 @@ Recibirás respuesta en un plazo de 7 días.
 
 ## Modelo de seguridad
 
-- Sueldapp no hace conexiones de red en tiempo de ejecución. La ventana usa una CSP
-  `default-src 'self'` y no carga recursos externos.
+- Sueldapp no hace conexiones de red en tiempo de ejecución. La interfaz es nativa (Slint), sin
+  motor web, y no carga recursos externos.
 - Los datos se guardan en una base SQLite local, sin cifrar, en la carpeta de datos del usuario.
   La protección del archivo depende de los permisos del sistema y del cifrado del disco.
 - El importador solo lee los archivos `.ods`; nunca los modifica.
-- El instalador de Windows puede descargar WebView2 si el equipo no lo tiene (Windows 10/11 ya lo traen).
+- Los instaladores no descargan nada al instalarse.

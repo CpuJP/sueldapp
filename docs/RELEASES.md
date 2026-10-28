@@ -15,19 +15,20 @@ Cada instalador se construye de forma nativa en su arquitectura (runners de GitH
 ## Versionado
 
 [SemVer](https://semver.org/lang/es/): `MAJOR.MINOR.PATCH`. Las preversiones llevan sufijo
-(`v0.1.0-alpha.1`, `v0.2.0-beta.1`) y se publican como *pre-release*. La versión de
-`Cargo.toml` (`[workspace.package]`) es la parte numérica (`0.1.0`); el instalador MSI de Windows no
-admite sufijos.
+(`v0.1.0-alpha.1`, `v0.2.0-beta.1`) y se publican como *pre-release*. Las etiquetas sin sufijo
+(`v0.2.0`) se publican como versión estable. La versión de `Cargo.toml` (`[workspace.package]`) es la
+parte numérica (`0.2.0`); el instalador MSI de Windows no admite sufijos.
 
 ## Pasos
 
-1. Actualiza la versión en `Cargo.toml` (`[workspace.package]`).
+1. Actualiza la versión en `Cargo.toml` (`[workspace.package]`) y en las dependencias internas
+   (`sueldapp-* = { version = "…", path = … }` de `crates/*/Cargo.toml`).
 2. Mueve lo de "Sin publicar" de `CHANGELOG.md` a una sección nueva con la versión y la fecha.
-3. Commit: `chore: versión 0.2.0`.
+3. Commit: `chore: versión 0.3.0`.
 4. Etiqueta y empuja:
    ```bash
-   git tag -a v0.2.0 -m "Sueldapp 0.2.0"
-   git push origin main v0.2.0
+   git tag -a v0.3.0 -m "Sueldapp 0.3.0"
+   git push origin main v0.3.0
    ```
 5. El flujo **Release** comprueba que la etiqueta coincide con la versión, compila en las cuatro
    plataformas y sube los instaladores a un **borrador** de release con las notas del CHANGELOG.

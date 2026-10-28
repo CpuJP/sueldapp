@@ -1,5 +1,8 @@
 # Research: App de escritorio de finanzas personales
 
+> **Nota (2026-10-28):** la interfaz Tauri/HTML descrita aquí fue reemplazada por una interfaz
+> nativa con Slint. Ver [`specs/004-interfaz-nativa`](../004-interfaz-nativa/) y la ADR 0006.
+
 ## R1. Framework de UI (efecto vidrio real)
 
 **Decision**: Tauri 2 (núcleo Rust + interfaz HTML/CSS/JS sin bundler).

@@ -6,6 +6,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Añadido
+
+- Al pasar el puntero sobre una barra o un mes de los gráficos se muestra qué contiene (antes solo
+  aparecía al hacer clic y arrastrar).
+- Notificaciones nuevas: píldora con franja de color y ícono según el tipo (verde: hecho;
+  naranja: borrado, deshecho o atención; rojo: error), botón para cerrar y «Deshacer» bien alineado.
+
+### Documentación
+
+- Revisión completa tras el paso a Slint: nombres reales de los instaladores, política de
+  seguridad sin CSP ni WebView2, guía de usuario (primer uso, avisos, tooltips), comando de capturas
+  y notas en las specs históricas.
+
 ## [0.2.0] - 2026-10-28
 
 Primera versión estable.

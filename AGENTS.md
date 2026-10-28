@@ -35,6 +35,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p sueldapp                         # ejecutar la app
 cargo run -p sueldapp-ods --bin importar -- Ingreso-Egreso.ods   # migrar desde terminal
 SUELDAPP_DB=/ruta/demo.sqlite3 SUELDAPP_DEMO=1 cargo run -p sueldapp   # datos ficticios
+SUELDAPP_TEMA=oscuro cargo run -p sueldapp                            # forzar tema (claro/oscuro)
 SUELDAPP_DB=/tmp/demo.sqlite3 SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS=docs/capturas cargo run -p sueldapp  # capturas + prueba de humo
 ```
 

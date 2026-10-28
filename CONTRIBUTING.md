@@ -37,7 +37,8 @@ En Windows basta con Rust (MSVC).
    SUELDAPP_SIN_ODS=1 cargo test --workspace
    ```
 5. Si tocas la interfaz, revisa claro, oscuro y "reducir transparencia", y que todo se use con teclado.
-   Para capturas: `SUELDAPP_DB=/tmp/demo.sqlite3 SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS=/tmp/capturas cargo run -p sueldapp --features capturas`.
+   Para capturas de todas las pantallas en los 4 modos (y la prueba de humo, que deja `prueba-ok.txt`):
+   `SUELDAPP_DB=/tmp/demo.sqlite3 SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS=/tmp/capturas cargo run -p sueldapp`.
 6. Mensajes de commit con [Conventional Commits](https://www.conventionalcommits.org/es/) en español:
    `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `ci:`.
 7. Actualiza `CHANGELOG.md` en la sección "Sin publicar".

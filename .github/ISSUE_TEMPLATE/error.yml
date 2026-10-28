@@ -27,7 +27,7 @@ body:
     id: version
     attributes:
       label: Versión de Sueldapp
-      placeholder: v0.1.0-alpha.1
+      placeholder: v0.2.0
     validations:
       required: true
   - type: dropdown

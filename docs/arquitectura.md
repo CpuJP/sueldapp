@@ -11,7 +11,8 @@ flowchart LR
   end
   subgraph APP["crates/app"]
     C[vistas.rs · pantallas.rs · acciones.rs<br/>validación de entrada y modelos]
-    D[demo.rs · capturas.rs<br/>solo desarrollo]
+    N[notificaciones.rs<br/>avisos y deshacer]
+    D[demo.rs · capturas.rs<br/>datos ficticios, capturas y prueba de humo]
   end
   subgraph NUCLEO["Núcleo Rust"]
     DOM[crates/dominio<br/>tipos, cálculos, formato COP]
@@ -25,6 +26,8 @@ flowchart LR
   C --> DOM
   C --> ALM
   C --> ODS
+  C --> N
+  N -- avisos --> V
   ODS --> DOM
   ODS --> ALM
   ALM --> DOM
@@ -39,7 +42,7 @@ flowchart LR
 | `dominio` | Tipos (`Mes`, `Gasto`, `Ingreso`, `Deuda`, `Tarjeta`, `Estado`), reglas de la hoja (Total, Pagado, Restante, saldos), formato y lectura de montos, normalización de texto. Sin IO. | `rust_decimal`, `serde` |
 | `almacen` | Apertura de SQLite (WAL, claves foráneas), migraciones con `PRAGMA user_version`, repositorios CRUD con *upsert* por `origen` y deshacer. | `dominio`, `rusqlite` |
 | `ods` | Lectura del XML del `.ods` sin `f64`, fórmulas simples, extracción de la pestaña `Nómina`, importador transaccional con log, conciliación, exportación `.ods`/`.csv` y restauración. Binario `importar`. | `dominio`, `almacen`, `zip`, `quick-xml` |
-| `app` | Interfaz Slint, diálogos de archivo nativos (`rfd`), enlace con el núcleo. | todos, `slint`, `rfd` |
+| `app` | Interfaz Slint, diálogos de archivo nativos (`rfd`), enlace con el núcleo. Todas las notificaciones pasan por `src/notificaciones.rs` (tipo, duración y deshacer). | todos, `slint`, `rfd` |
 
 ## Reglas clave
 

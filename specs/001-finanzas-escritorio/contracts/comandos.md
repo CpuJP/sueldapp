@@ -1,5 +1,8 @@
 # Contrato UI ↔ núcleo (comandos Tauri)
 
+> **Nota (2026-10-28):** la interfaz Tauri/HTML descrita aquí fue reemplazada por una interfaz
+> nativa con Slint. Ver [`specs/004-interfaz-nativa`](../../004-interfaz-nativa/) y la ADR 0006.
+
 Todos devuelven JSON. Montos viajan como **string decimal** (`"12345.67"`), nunca como número.
 Errores: un string con el mensaje para el usuario. Los montos de salida van como `{valor, texto, negativo}`; los montos de entrada, como el texto que escribió el usuario (`"150.000"`). Los argumentos de primer nivel van en camelCase (`reasignarA`).
 

@@ -7,7 +7,7 @@ app nunca se conecta a internet.
 
 ## 1. Primer uso: traer tu hoja
 
-1. Abre Sueldapp. Si aún no hay datos, verás el botón **Importar mi hoja**.
+1. Abre Sueldapp y ve a **Importar y exportar** (Alt + 7). Pulsa **Elegir archivo e importar**.
 2. Elige tu archivo `Ingreso-Egreso.ods`. La app solo lo lee; tu archivo no cambia.
 3. Lee el informe. Si dice **Importación correcta**, todos los totales coinciden con la hoja.
    Si hay diferencias, no se guarda nada y el informe muestra cuáles son.
@@ -29,6 +29,8 @@ Es lo primero que ves al abrir la app. Resume todo tu dinero en el periodo que e
   mes con más gasto y lo que aún debes.
 - **Gráficos:** ingresos y gastos por mes, lo que sobra o falta cada mes (azul si sobra, rojo si
   falta) y el saldo acumulado. Pasa el puntero sobre un mes para ver sus cifras.
+
+![Cifras de un mes al pasar el puntero](capturas/tooltip-oscuro.png)
 - **¿En qué se va el dinero?:** deudas, tarjetas y otros gastos; también por categoría, por estado,
   por concepto y los gastos más grandes.
 - **Ver los datos de los gráficos en tabla:** todas las cifras en una tabla.
@@ -118,10 +120,22 @@ En **Importar y exportar** puedes guardar todo en `.ods` o en `.csv` para abrirl
 hoja de cálculo. Si importas un `.ods` exportado por Sueldapp, se restauran todos tus datos tal
 como estaban.
 
-## 10. Ajustes y accesibilidad
+## 10. Avisos
+
+Cada acción muestra un aviso abajo a la derecha, con una franja de color y un ícono:
+
+- **Verde:** algo se guardó, se creó o se marcó como pagado.
+- **Naranja:** algo se borró o se deshizo.
+- **Rojo:** un error; el texto explica qué pasó.
+
+Si el aviso tiene **Deshacer**, tienes unos segundos para revertir el cambio. La **✕** lo cierra.
+
+![Avisos](capturas/notificaciones-oscuro.png)
+
+## 11. Ajustes y accesibilidad
 
 - **Reducir transparencia:** cambia el vidrio por superficies sólidas.
-- **Reducir movimiento:** quita las animaciones.
+- **Reducir movimiento:** quita las animaciones. La app no lee este ajuste del sistema: actívalo aquí.
 - **Tema:** Sistema (sigue tu configuración), Claro u Oscuro.
 - Atajos: **Alt + 1…8** cambia de sección y **Escape** cierra un diálogo. Todo se puede usar con
   el teclado (Tab y Enter).

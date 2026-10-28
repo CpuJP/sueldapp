@@ -1,5 +1,8 @@
 # Implementation Plan: App de escritorio de finanzas personales
 
+> **Nota (2026-10-28):** la interfaz Tauri/HTML descrita aquí fue reemplazada por una interfaz
+> nativa con Slint. Ver [`specs/004-interfaz-nativa`](../004-interfaz-nativa/) y la ADR 0006.
+
 **Branch**: `001-finanzas-escritorio` | **Date**: 2026-10-28 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/001-finanzas-escritorio/spec.md`

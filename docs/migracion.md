@@ -51,8 +51,8 @@ categoria: cel ana = Tecnología           # palabras del concepto = categoría
 ```
 
 Sin `reglas.txt` se usan solo las reglas genéricas del código (servicios, hogar, alimentación…).
-Para categorizar una base ya importada sin tocar lo que ya tiene categoría:
-`sueldapp-importar --categorizar`.
+Para categorizar una base ya importada sin tocar lo que ya tiene categoría (desde el código fuente):
+`cargo run --release -p sueldapp-ods --bin importar -- --categorizar`.
 
 ## Idempotencia
 
