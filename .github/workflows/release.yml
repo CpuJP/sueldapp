@@ -1,0 +1,125 @@
+name: Release
+
+# Publica instaladores al empujar una etiqueta vX.Y.Z (o vX.Y.Z-alpha.N).
+# La versión de crates/app/tauri.conf.json debe coincidir con X.Y.Z.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      etiqueta:
+        description: Etiqueta existente a construir (p. ej. v0.1.0-alpha.1)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TAURI_CLI: "@tauri-apps/cli@2.12.2"
+
+jobs:
+  preparar:
+    name: Preparar release
+    runs-on: ubuntu-24.04
+    outputs:
+      etiqueta: ${{ steps.v.outputs.etiqueta }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.etiqueta || github.ref }}
+      - id: v
+        name: Comprobar versión
+        shell: bash
+        run: |
+          etiqueta="${{ github.event.inputs.etiqueta || github.ref_name }}"
+          version="${etiqueta#v}"
+          base="${version%%-*}"
+          app=$(python3 -c "import json; print(json.load(open('crates/app/tauri.conf.json'))['version'])")
+          if [ "$app" != "$base" ]; then
+            echo "::error::La etiqueta $etiqueta no coincide con la versión $app de tauri.conf.json"
+            exit 1
+          fi
+          echo "etiqueta=$etiqueta" >> "$GITHUB_OUTPUT"
+          if [ "$version" != "$base" ]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Crear borrador de release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          notas=$(awk '/^## \[/{n++} n==1' CHANGELOG.md | tail -n +2)
+          flag=""
+          if [ "${{ steps.v.outputs.prerelease }}" = "true" ]; then flag="--prerelease"; fi
+          gh release view "${{ steps.v.outputs.etiqueta }}" >/dev/null 2>&1 || \
+            gh release create "${{ steps.v.outputs.etiqueta }}" --draft $flag \
+              --title "Sueldapp ${{ steps.v.outputs.etiqueta }}" --notes "${notas:-Ver CHANGELOG.md}"
+
+  construir:
+    name: ${{ matrix.nombre }}
+    needs: preparar
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - nombre: Linux x64
+            os: ubuntu-22.04
+            paquetes: deb,rpm,appimage
+          - nombre: Linux ARM64
+            os: ubuntu-22.04-arm
+            paquetes: deb,rpm
+          - nombre: Windows x64
+            os: windows-latest
+            paquetes: nsis,msi
+          - nombre: Windows ARM64
+            os: windows-11-arm
+            paquetes: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preparar.outputs.etiqueta }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependencias de sistema (WebKitGTK)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev patchelf file
+      - uses: Swatinem/rust-cache@v2
+      - name: Construir instaladores
+        working-directory: crates/app
+        shell: bash
+        run: npx --yes "$TAURI_CLI" build --bundles ${{ matrix.paquetes }}
+      - name: Reunir instaladores
+        shell: bash
+        run: |
+          mkdir -p dist
+          find target/release/bundle -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' -o -name '*.msi' -o -name '*-setup.exe' \) -exec cp {} dist/ \;
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sueldapp-${{ runner.os }}-${{ runner.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  publicar:
+    name: Subir al borrador de release
+    needs: [preparar, construir]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Sumas SHA-256 y subida
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "${{ needs.preparar.outputs.etiqueta }}" * --clobber

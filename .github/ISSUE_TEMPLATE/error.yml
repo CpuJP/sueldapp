@@ -1,0 +1,48 @@
+name: Reportar un error
+description: Algo no funciona como debería.
+labels: ["error"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportarlo. **No pegues datos financieros reales** (montos, nombres, archivos `.ods` o la base de datos). Si hace falta un ejemplo, usa datos inventados o la plantilla vacía.
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: ¿Qué pasó?
+      description: Describe el problema y qué esperabas que pasara.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducirlo
+      placeholder: |
+        1. Abrir Movimientos
+        2. Filtrar por…
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Sueldapp
+      placeholder: v0.1.0-alpha.1
+    validations:
+      required: true
+  - type: dropdown
+    id: sistema
+    attributes:
+      label: Sistema
+      options:
+        - Linux x64
+        - Linux ARM64
+        - Windows x64
+        - Windows ARM64
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: registro
+    attributes:
+      label: Mensajes de error o capturas (sin datos reales)

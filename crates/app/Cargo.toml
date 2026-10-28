@@ -1,0 +1,32 @@
+[package]
+name = "sueldapp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sueldapp-almacen = { version = "0.1.0", path = "../almacen" }
+sueldapp-dominio = { version = "0.1.0", path = "../dominio" }
+sueldapp-ods = { version = "0.1.0", path = "../ods" }
+tauri = { version = "2.12.5", features = [] }
+tauri-plugin-dialog = "2.8.4"
+
+[lints]
+workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[features]
+# Solo para desarrollo: captura la vista con la API de WebKit (`SUELDAPP_CAPTURAS=<carpeta>`).
+capturas = ["dep:webkit2gtk", "dep:cairo-rs"]
+
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "=2.0.2", optional = true }
+cairo-rs = { version = "0.18", features = ["png"], optional = true }

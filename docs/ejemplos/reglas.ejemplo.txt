@@ -1,0 +1,18 @@
+# Ejemplo de reglas personales para Sueldapp.
+# Copia este archivo como "reglas.txt" junto a tu base de datos:
+#   Linux:   ~/.local/share/sueldapp/reglas.txt
+#   Windows: %APPDATA%\sueldapp\reglas.txt
+# o indica otra ruta con la variable SUELDAPP_REGLAS. No lo subas a git: es personal.
+#
+# Formato: tipo: clave = valor   (las claves se comparan sin mayúsculas, tildes ni "Cuota N")
+
+# Pagos de tarjeta: palabra del concepto = nombre de la tarjeta en la app
+tarjeta: banco azul = Tarjeta Azul
+
+# Deuda con pago fijo sin fórmula en la hoja: nombre de la deuda = raíz del concepto de sus cuotas
+alias: moto nueva = moto
+
+# Categorías: palabras del concepto = categoría (van antes que las genéricas)
+categoria: portatil = Tecnología
+categoria: cel ana = Tecnología
+categoria: viaje playa = Viajes

@@ -1,0 +1,22 @@
+# Datos financieros personales: nunca a git
+*.ods
+*.ods#
+.~lock.*
+*.sqlite
+*.sqlite3
+*.db
+*.db-*
+datos/
+logs/
+*.log
+exports/
+*.csv
+
+# Build
+/target/
+node_modules/
+dist/
+
+# Datos y reglas personales
+reglas.txt
+docs/privado/

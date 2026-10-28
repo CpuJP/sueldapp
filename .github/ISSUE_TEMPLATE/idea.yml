@@ -1,0 +1,24 @@
+name: Proponer una mejora
+description: Una función nueva o un cambio en una existente.
+labels: ["mejora"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Cuéntanos la situación, no solo la solución.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+    validations:
+      required: true
+  - type: checkboxes
+    id: principios
+    attributes:
+      label: Principios del proyecto
+      options:
+        - label: La propuesta mantiene los datos locales y sin conexiones de red.
+          required: true

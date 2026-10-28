@@ -1,0 +1,21 @@
+[package]
+name = "sueldapp-almacen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rusqlite = { version = "0.41.0", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+sueldapp-dominio = { version = "0.1.0", path = "../dominio" }
+thiserror = "2.0.21"
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+rust_decimal_macros = "1.40.0"

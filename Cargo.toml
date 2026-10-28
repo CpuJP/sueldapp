@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["crates/dominio", "crates/almacen", "crates/ods", "crates/app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+authors = ["Juan Pablo Giraldo Collazos"]
+repository = "https://github.com/CpuJP/sueldapp"
+homepage = "https://github.com/CpuJP/sueldapp"
+description = "Finanzas personales de escritorio, locales y privadas: sueldo, gastos, deudas y tarjetas."
+rust-version = "1.95"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+float_arithmetic = "deny"

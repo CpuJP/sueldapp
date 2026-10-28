@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(.specify/scripts/bash/*:*)"
+    ],
+    "ask": [
+      "Bash(rm:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git clean:*)",
+      "Bash(git reset --hard:*)"
+    ],
+    "deny": [
+      "Read(./**/*.sqlite3)",
+      "Bash(git add -f:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/cargo-fmt.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
