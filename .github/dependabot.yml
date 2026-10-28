@@ -8,6 +8,11 @@ updates:
     groups:
       tauri:
         patterns: ["tauri*", "wry", "tao"]
+    ignore:
+      # Deben seguir la versión de gtk-rs que usa Tauri (función opcional `capturas`).
+      - dependency-name: "cairo-rs"
+      - dependency-name: "webkit2gtk"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
