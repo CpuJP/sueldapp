@@ -48,7 +48,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          notas=$(awk '/^## \[/{n++} n==1' CHANGELOG.md | tail -n +2)
+          version="${{ steps.v.outputs.etiqueta }}"; version="${version#v}"
+          notas=$(awk -v v="## [$version]" 'index($0, v) == 1 {d=1; next} /^## \[/ {d=0} d' CHANGELOG.md)
           flag=""
           if [ "${{ steps.v.outputs.prerelease }}" = "true" ]; then flag="--prerelease"; fi
           gh release view "${{ steps.v.outputs.etiqueta }}" >/dev/null 2>&1 || \

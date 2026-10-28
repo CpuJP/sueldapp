@@ -6,6 +6,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.1.0-alpha.2] - 2026-10-28
+
 ### Cambiado
 
 - Nuevo ícono de la app (tablero con moneda, estilo vidrio) en todos los tamaños y en la barra lateral.
@@ -33,5 +35,6 @@ Primera versión alpha.
   navegación completa con teclado.
 - Instaladores para Linux (x64 y ARM64) y Windows (x64 y ARM64).
 
-[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.1.0-alpha.1...HEAD
+[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.1.0-alpha.2...HEAD
+[0.1.0-alpha.2]: https://github.com/CpuJP/sueldapp/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/CpuJP/sueldapp/releases/tag/v0.1.0-alpha.1
