@@ -6,6 +6,24 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.4.0] - 2026-11-02
+
+### Añadido
+
+- Fecha de pago opcional en gastos y cuotas de deudas; se conserva al exportar y restaurar.
+- Tablero configurable por módulos con edición directa: arrastrar, cambiar tamaño con los bordes, quitar y añadir, y ajustes de vista, título y espaciado.
+- Alertas configurables en Ajustes: activar, anticipación, vencidos, notificación y botón del menú.
+- Módulo Meses: meses completos y pendientes con distintivo visual, atrasos y lo que falta por pagar.
+- Estado de los meses en el Tablero. Los atajos Alt cambian: Meses es Alt + 3 y lo que seguía se corre uno.
+- Alertas de pagos cercanos: pagos pendientes vencidos o a 7 días o menos de su fecha de pago.
+- Estado de cada mes (faltan pagos, todo pagado, hecho), en Resumen y en la vista Año.
+- Al pagar lo último de un mes, la app pregunta si quieres marcarlo como hecho.
+
+### Cambiado
+
+- «Mes cerrado» pasa a ser «Mes hecho»: no se puede marcar con pagos pendientes, y un mes hecho
+  deja de estarlo si vuelve a tenerlos.
+
 ## [0.3.0] - 2026-10-28
 
 ### Añadido
@@ -61,7 +79,8 @@ Primera versión alpha.
   navegación completa con teclado.
 - Instaladores para Linux (x64 y ARM64) y Windows (x64 y ARM64).
 
-[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.3.0...HEAD
+[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/CpuJP/sueldapp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CpuJP/sueldapp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CpuJP/sueldapp/compare/v0.1.0-alpha.2...v0.2.0
 [0.1.0-alpha.2]: https://github.com/CpuJP/sueldapp/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
