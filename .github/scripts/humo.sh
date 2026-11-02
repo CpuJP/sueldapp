@@ -4,13 +4,15 @@
 set -u
 dir=$(mktemp -d)
 SUELDAPP_DB="$dir/demo.sqlite3" SUELDAPP_DEMO=1 SUELDAPP_CAPTURAS="$dir/capturas" \
-  timeout 900 xvfb-run -a -s "-screen 0 1600x2400x24" "$1"
+  timeout 900 xvfb-run -a -s "-screen 0 1600x2400x24" "$1" >"$dir/app.log" 2>&1
+salida=$?
+cat "$dir/app.log"
 if ls "$dir"/capturas/prueba-*fallo* >/dev/null 2>&1; then
   for f in "$dir"/capturas/prueba-*fallo*; do echo "::error::$(basename "$f"): $(cat "$f")"; done
   exit 1
 fi
 if [ ! -f "$dir/capturas/prueba-ok.txt" ]; then
-  echo "::error::La prueba de humo no llegó al final"
+  echo "::error::La prueba de humo no llegó al final (salida $salida): $(tail -n 5 "$dir/app.log" | tr '\n' ' ')"
   exit 1
 fi
 echo "Prueba de humo correcta"

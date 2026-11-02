@@ -88,7 +88,7 @@ jobs:
       - name: Dependencias de sistema (fuentes, teclado y pantalla virtual)
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev xvfb
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libxkbcommon-x11-0 libx11-xcb1 libxcursor1 libxi6 libxrandr2 xvfb
       - uses: Swatinem/rust-cache@v2
       - run: cargo build -p sueldapp --release --locked
       - name: Recorrer la app con datos de demostración
