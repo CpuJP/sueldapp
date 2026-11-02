@@ -24,15 +24,22 @@ parte numérica (`0.2.0`); el instalador MSI de Windows no admite sufijos.
 1. Actualiza la versión en `Cargo.toml` (`[workspace.package]`) y en las dependencias internas
    (`sueldapp-* = { version = "…", path = … }` de `crates/*/Cargo.toml`).
 2. Mueve lo de "Sin publicar" de `CHANGELOG.md` a una sección nueva con la versión y la fecha.
-3. Commit: `chore: versión 0.3.0`.
-4. Etiqueta y empuja:
+3. Añade a `crates/almacen/tests/versiones.rs` una prueba `v0_4_0_…` con lo específico de la versión.
+   Corre `cargo test --workspace` con tu `.ods`: la conciliación real no se ejecuta en GitHub.
+4. Commit: `chore: versión 0.4.0`.
+5. Etiqueta y empuja:
    ```bash
-   git tag -a v0.3.0 -m "Sueldapp 0.3.0"
-   git push origin main v0.3.0
+   git tag -a v0.4.0 -m "Sueldapp 0.4.0"
+   git push origin main v0.4.0
    ```
-5. El flujo **Release** comprueba que la etiqueta coincide con la versión, compila en las cuatro
-   plataformas y sube los instaladores a un **borrador** de release con las notas del CHANGELOG.
-6. Revisa el borrador, prueba los instaladores y pulsa **Publish release**.
+6. El flujo **Release** hace todo lo demás, en orden:
+   - Exige que la etiqueta coincida con la versión, la sección del CHANGELOG y la prueba de la versión.
+   - Pasa formato, lints y pruebas en las cuatro plataformas, y la prueba de humo de la app en Linux.
+   - Construye los instaladores y los sube al borrador con las notas del CHANGELOG.
+   - Publica la release.
+
+Si algo falla, la release se queda en **borrador** y no llega a nadie. Nadie prueba los instaladores
+a mano antes de publicar: cada instalador se construye, pero solo se ejecuta la app de Linux x64.
 
 Para reconstruir una etiqueta existente: Actions → Release → *Run workflow* → indica la etiqueta.
 

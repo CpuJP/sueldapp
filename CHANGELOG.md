@@ -6,6 +6,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+### Cambiado
+
+- Las versiones se publican solas cuando pasan las pruebas, la prueba de humo y todas las compilaciones.
+
 ## [0.4.0] - 2026-11-02
 
 ### Añadido

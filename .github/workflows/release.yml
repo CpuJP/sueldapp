@@ -1,6 +1,7 @@
 name: Release
 
-# Publica instaladores al empujar una etiqueta vX.Y.Z (o vX.Y.Z-alpha.N).
+# Al empujar una etiqueta vX.Y.Z (o vX.Y.Z-alpha.N): comprueba, construye y publica sola.
+# Si falla cualquier prueba o plataforma, la release se queda en borrador.
 # La versión de [workspace.package] en Cargo.toml debe coincidir con X.Y.Z.
 on:
   push:
@@ -40,6 +41,15 @@ jobs:
             echo "::error::La etiqueta $etiqueta no coincide con la versión $app de Cargo.toml"
             exit 1
           fi
+          if ! grep -q "^## \[$base\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md no tiene la sección de la versión $base"
+            exit 1
+          fi
+          funcion="v${base//./_}"
+          if ! grep -Eq "fn ${funcion}(_|\()" crates/almacen/tests/versiones.rs; then
+            echo "::error::Falta una prueba ${funcion}_… en crates/almacen/tests/versiones.rs"
+            exit 1
+          fi
           echo "etiqueta=$etiqueta" >> "$GITHUB_OUTPUT"
           if [ "$version" != "$base" ]; then echo "prerelease=true" >> "$GITHUB_OUTPUT"; else echo "prerelease=false" >> "$GITHUB_OUTPUT"; fi
       - name: Crear borrador de release
@@ -55,9 +65,16 @@ jobs:
             gh release create "${{ steps.v.outputs.etiqueta }}" --draft $flag \
               --title "Sueldapp ${{ steps.v.outputs.etiqueta }}" --notes "${notas:-Ver CHANGELOG.md}"
 
+  comprobar:
+    name: Comprobaciones
+    needs: preparar
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.preparar.outputs.etiqueta }}
+
   construir:
     name: ${{ matrix.nombre }}
-    needs: preparar
+    needs: [preparar, comprobar]
     strategy:
       fail-fast: false
       matrix:
@@ -111,7 +128,7 @@ jobs:
           if-no-files-found: error
 
   publicar:
-    name: Subir al borrador de release
+    name: Publicar release
     needs: [preparar, construir]
     runs-on: ubuntu-24.04
     steps:
@@ -128,3 +145,11 @@ jobs:
           sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release upload "${{ needs.preparar.outputs.etiqueta }}" * --clobber
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          flag="--latest"
+          if [ "${{ needs.preparar.outputs.prerelease }}" = "true" ]; then flag="--prerelease"; fi
+          gh release edit "${{ needs.preparar.outputs.etiqueta }}" --draft=false $flag

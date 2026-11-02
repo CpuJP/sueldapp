@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # El flujo Release ejecuta estas mismas comprobaciones antes de construir.
+  workflow_call:
+    inputs:
+      ref:
+        description: Etiqueta o commit a comprobar
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -24,6 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -53,6 +62,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: dtolnay/rust-toolchain@stable
       - name: Dependencias de sistema (fuentes y teclado)
         if: runner.os == 'Linux'
@@ -64,3 +75,21 @@ jobs:
         run: cargo test --workspace --locked
       - name: Compilar la app
         run: cargo build -p sueldapp --release --locked
+
+  humo:
+    name: Prueba de humo de la app
+    needs: formato
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Dependencias de sistema (fuentes, teclado y pantalla virtual)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev xvfb
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build -p sueldapp --release --locked
+      - name: Recorrer la app con datos de demostración
+        run: .github/scripts/humo.sh target/release/sueldapp
