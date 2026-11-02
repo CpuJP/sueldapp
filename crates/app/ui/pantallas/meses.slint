@@ -1,0 +1,151 @@
+import { Tema } from "../tema.slint";
+import { MesesD, App, FilaMes } from "../estado.slint";
+import { Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Chip, EstadoChip } from "../componentes.slint";
+import { Encabezado, Desplazable, Panel, Cifras } from "comun.slint";
+
+component ListaMeses inherits VerticalLayout {
+    in property <[FilaMes]> filas;
+    for m[i] in root.filas: VerticalLayout {
+        if i > 0: Separador { }
+        HorizontalLayout {
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: 12px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 4px;
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    Text {
+                        text: m.nombre;
+                        color: Tema.texto;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                    EstadoChip {
+                        texto: m.situacion;
+                        tipo: m.tipo;
+                    }
+                    if m.atrasado: VerticalLayout {
+                        alignment: center;
+                        Chip {
+                            texto: "Atrasado";
+                        }
+                    }
+                }
+                Ayuda {
+                    text: m.pagado;
+                }
+                Progreso {
+                    valor: m.avance;
+                }
+            }
+            if m.tipo != 1: VerticalLayout {
+                width: 150px;
+                alignment: center;
+                Ayuda {
+                    text: "Falta por pagar";
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: m.por-pagar;
+                    color: Tema.texto;
+                    font-weight: 600;
+                    horizontal-alignment: right;
+                }
+            }
+            if m.por-confirmar: VerticalLayout {
+                alignment: center;
+                Boton {
+                    texto: "Marcar como hecho";
+                    primario: true;
+                    clicked => {
+                        MesesD.marcar-hecho(m.clave);
+                    }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                Boton {
+                    texto: "Ver mes";
+                    clicked => {
+                        MesesD.abrir(m.clave);
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PantallaMeses inherits VerticalLayout {
+    spacing: 18px;
+    Encabezado {
+        titulo: "Meses";
+    }
+    Desplazable {
+        vertical-stretch: 1;
+        if App.vacia: Panel {
+            Titulo {
+                text: "Aún no hay meses";
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                Boton {
+                    texto: "Ir a Importar y exportar";
+                    primario: true;
+                    clicked => {
+                        App.navegar(6);
+                    }
+                }
+            }
+        }
+        if !App.vacia: Panel {
+            Titulo {
+                text: "Cómo van tus meses";
+            }
+            Progreso {
+                valor: MesesD.avance;
+            }
+            Ayuda {
+                text: MesesD.avance-texto;
+            }
+            Cifras {
+                columnas: 4;
+                cifras: MesesD.cifras;
+            }
+        }
+        if MesesD.por-confirmar.length > 0: Panel {
+            Titulo {
+                text: "Todo pagado, por confirmar (" + MesesD.por-confirmar.length + ")";
+            }
+            ListaMeses {
+                filas: MesesD.por-confirmar;
+            }
+        }
+        if !App.vacia: Panel {
+            Titulo {
+                text: "Con pagos pendientes (" + MesesD.pendientes.length + ")";
+            }
+            if MesesD.pendientes.length == 0: Ayuda {
+                text: "No tienes meses con pagos pendientes.";
+            }
+            ListaMeses {
+                filas: MesesD.pendientes;
+            }
+        }
+        if !App.vacia: Panel {
+            Titulo {
+                text: "Hechos (" + MesesD.hechos.length + ")";
+            }
+            if MesesD.hechos.length == 0: Ayuda {
+                text: "Aún no has marcado ningún mes como hecho.";
+            }
+            ListaMeses {
+                filas: MesesD.hechos;
+            }
+        }
+    }
+}

@@ -166,7 +166,7 @@ pub fn restaurar_mes(c: &Connection, m: &MesCompleto) -> Resultado<()> {
 // ---------- Gastos ----------
 
 const COLS_GASTO: &str = "id, mes_id, concepto, monto, estado_id, categoria_id, deuda_id, \
-    tarjeta_id, desglose, nota, fuera_de_bloque, orden, origen";
+    tarjeta_id, desglose, nota, fuera_de_bloque, orden, origen, fecha_pago";
 
 fn fila_gasto(f: &Row) -> rusqlite::Result<Gasto> {
     Ok(Gasto {
@@ -183,6 +183,7 @@ fn fila_gasto(f: &Row) -> rusqlite::Result<Gasto> {
         fuera_de_bloque: f.get(10)?,
         orden: f.get(11)?,
         origen: f.get(12)?,
+        fecha_pago: f.get(13)?,
     })
 }
 
@@ -215,7 +216,7 @@ pub fn gasto(c: &Connection, id: i64) -> Resultado<Gasto> {
 fn insertar_gasto(c: &Connection, g: &Gasto, id: Option<i64>) -> Resultado<i64> {
     c.execute(
         &format!(
-            "INSERT INTO gastos ({COLS_GASTO}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)"
+            "INSERT INTO gastos ({COLS_GASTO}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)"
         ),
         params![
             id,
@@ -230,7 +231,8 @@ fn insertar_gasto(c: &Connection, g: &Gasto, id: Option<i64>) -> Resultado<i64> 
             g.nota,
             g.fuera_de_bloque,
             g.orden,
-            g.origen
+            g.origen,
+            g.fecha_pago
         ],
     )?;
     Ok(c.last_insert_rowid())
@@ -240,10 +242,15 @@ pub fn guardar_gasto(c: &Connection, g: &Gasto) -> Resultado<Gasto> {
     g.validar()?;
     let id = match resolver_id(c, "gastos", g.id, &g.origen)? {
         Some(id) => {
+            // Reimportar por `origen` no trae fecha: no debe borrar la que anotó el usuario.
+            let fecha_pago = match (g.id, &g.fecha_pago) {
+                (None, None) => gasto(c, id)?.fecha_pago,
+                _ => g.fecha_pago.clone(),
+            };
             let n = c.execute(
                 "UPDATE gastos SET mes_id=?1, concepto=?2, monto=?3, estado_id=?4, categoria_id=?5, \
                  deuda_id=?6, tarjeta_id=?7, desglose=?8, nota=?9, fuera_de_bloque=?10, orden=?11, \
-                 origen=?12 WHERE id=?13",
+                 origen=?12, fecha_pago=?13 WHERE id=?14",
                 params![
                     g.mes_id,
                     g.concepto.trim(),
@@ -257,6 +264,7 @@ pub fn guardar_gasto(c: &Connection, g: &Gasto) -> Resultado<Gasto> {
                     g.fuera_de_bloque,
                     g.orden,
                     g.origen,
+                    fecha_pago,
                     id
                 ],
             )?;
@@ -858,7 +866,26 @@ mod tests {
             fuera_de_bloque: false,
             orden: 0,
             origen: origen.map(String::from),
+            fecha_pago: None,
         }
+    }
+
+    #[test]
+    fn fecha_de_pago_se_guarda_y_sobrevive_a_reimportar() {
+        let c = crate::abrir_memoria().unwrap();
+        let m = mes_nuevo(&c);
+        let mut g = nuevo_gasto(m, Some("Hoja!A1"));
+        g.fecha_pago = Some("2026-11-23".into());
+        let guardado = guardar_gasto(&c, &g).unwrap();
+        assert_eq!(guardado.fecha_pago.as_deref(), Some("2026-11-23"));
+        // Reimportación: mismo origen, sin id ni fecha.
+        let r = guardar_gasto(&c, &nuevo_gasto(m, Some("Hoja!A1"))).unwrap();
+        assert_eq!(r.id, guardado.id);
+        assert_eq!(r.fecha_pago.as_deref(), Some("2026-11-23"));
+        // Editar en la app sí puede quitarla.
+        let mut e = r;
+        e.fecha_pago = None;
+        assert_eq!(guardar_gasto(&c, &e).unwrap().fecha_pago, None);
     }
 
     fn mes_nuevo(c: &Connection) -> i64 {

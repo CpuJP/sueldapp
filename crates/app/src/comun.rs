@@ -4,6 +4,8 @@ use crate::estado::Estado;
 use crate::vistas::{GastoVista, Monto};
 use crate::{Cifra, Fila, Pagina};
 use slint::{ModelRc, SharedString, VecModel};
+use sueldapp_dominio::calculos::SituacionMes;
+use sueldapp_dominio::formato::formatear_fecha;
 use sueldapp_dominio::paginacion::Direccion;
 
 pub fn s(t: impl AsRef<str>) -> SharedString {
@@ -36,6 +38,22 @@ pub fn cifra_texto(etiqueta: &str, valor: &str, nota: &str, negativo: bool) -> C
     }
 }
 
+/// Tipo del distintivo de un mes: los mismos de `EstadoChip`.
+pub fn tipo_situacion(x: SituacionMes) -> i32 {
+    match x {
+        SituacionMes::Hecho | SituacionMes::PorConfirmar => 1,
+        _ => 0,
+    }
+}
+
+pub fn cifras(v: Vec<(String, String, String, bool)>) -> ModelRc<Cifra> {
+    modelo(
+        v.iter()
+            .map(|(e, val, n, neg)| cifra_texto(e, val, n, *neg))
+            .collect(),
+    )
+}
+
 /// Tipo visual del estado: 0 pendiente, 1 pagado, 2 no, 3 aplazado.
 pub fn tipo_estado(g: &GastoVista) -> i32 {
     if g.pagado {
@@ -50,6 +68,9 @@ pub fn tipo_estado(g: &GastoVista) -> i32 {
 
 pub fn fila(g: &GastoVista) -> Fila {
     let mut et = Vec::new();
+    if let Some(f) = &g.gasto.fecha_pago {
+        et.push(format!("Pago: {}", formatear_fecha(f)));
+    }
     if let Some(c) = &g.categoria {
         et.push(c.clone());
     }

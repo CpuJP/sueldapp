@@ -1,11 +1,13 @@
 //! Acciones de la interfaz: navegación, formularios, borrar con deshacer, importar/exportar.
 
-use crate::comun::{s, textos};
-use crate::estado::{guardar_ajustes, AccionConfirmada, Ajustes, Deshacer, Estado, Formulario};
+use crate::comun::{fila, modelo, s, textos};
+use crate::estado::{
+    guardar_ajustes, hoy_iso, AccionConfirmada, Ajustes, Deshacer, Estado, Formulario,
+};
 use crate::notificaciones::{self, Tipo};
 use crate::vistas::{self, DeudaEntrada, GastoEntrada, IngresoEntrada, TarjetaEntrada};
 use crate::{p_tablero, pantallas, App, Confirmar, Form, Tema, Ventana};
-use slint::{ComponentHandle, Weak};
+use slint::{ComponentHandle, Model, Weak};
 use std::cell::RefCell;
 use std::rc::Rc;
 use sueldapp_almacen::repo;
@@ -25,13 +27,214 @@ fn opcional(v: &str) -> Option<String> {
 
 // ---------- Avisos y recarga ----------
 
+/// Mantiene el estado "hecho" de los meses al día y pregunta si uno acaba de quedar pagado.
+fn sincronizar_meses(ui: &Ventana, est: &Est) {
+    let r = {
+        let e = est.borrow();
+        vistas::sincronizar_meses(&e.c)
+    };
+    let s = match r {
+        Ok(s) => s,
+        Err(m) => return notificaciones::error(ui, est, &m),
+    };
+    for nombre in &s.reabiertos {
+        notificaciones::notificar(
+            ui,
+            est,
+            Tipo::Advertencia,
+            &format!("{nombre} ya no está hecho: tiene pagos pendientes."),
+            None,
+        );
+    }
+    let previos = est
+        .borrow_mut()
+        .meses_completos
+        .replace(s.completos.clone());
+    let Some(previos) = previos else { return };
+    let nuevos: Vec<_> = s
+        .por_confirmar
+        .iter()
+        .filter(|m| m.id.is_some_and(|id| !previos.contains(&id)))
+        .collect();
+    // Varios a la vez vienen de importar o restaurar: se confirman desde Resumen, sin encadenar diálogos.
+    let [mes] = nuevos[..] else { return };
+    let libre = {
+        let e = est.borrow();
+        e.form.is_none() && e.confirmar.is_none()
+    };
+    if libre {
+        preguntar_mes_hecho(ui, est, mes);
+    }
+}
+
+fn accion_mes_hecho(id: i64, nombre: String) -> AccionConfirmada {
+    Box::new(move |e: &mut Estado| {
+        vistas::marcar_mes(&e.c, id, true)?;
+        Ok((
+            format!("{nombre} marcado como hecho."),
+            Box::new(move |c: &_| vistas::marcar_mes(c, id, false).map(|_| ())) as Deshacer,
+        ))
+    })
+}
+
+fn preguntar_mes_hecho(ui: &Ventana, est: &Est, mes: &sueldapp_dominio::Mes) {
+    let nombre = format!("{} {}", NOMBRES_MES[mes.mes as usize - 1], mes.anio);
+    {
+        let mut e = est.borrow_mut();
+        e.confirmar = Some(accion_mes_hecho(mes.id.unwrap_or(0), nombre.clone()));
+        e.confirmar_exito = true;
+    }
+    let c = ui.global::<Confirmar>();
+    c.set_titulo(s(format!("Ya pagaste todo de {nombre}")));
+    c.set_texto(s("¿Quieres marcar este mes como hecho?"));
+    c.set_boton(s("Marcar como hecho"));
+    c.set_visible(true);
+}
+
+/// Botón de Resumen: la persona confirma el mes que está viendo.
+pub fn marcar_mes_hecho(ui: &Ventana, est: &Est) {
+    let p = est.borrow().resumen;
+    marcar_periodo_hecho(ui, est, p);
+}
+
+/// Módulo Meses: abre un mes en Resumen.
+pub fn abrir_periodo(ui: &Ventana, est: &Est, p: sueldapp_dominio::Periodo) {
+    {
+        let mut e = est.borrow_mut();
+        e.resumen = p;
+        e.modo_resumen = 0;
+    }
+    navegar(ui, est, 1);
+}
+
+pub fn marcar_periodo_hecho(ui: &Ventana, est: &Est, (a, m): sueldapp_dominio::Periodo) {
+    let r = (|| -> Result<(String, Deshacer), String> {
+        let mut e = est.borrow_mut();
+        let id = repo::mes_por_periodo(&e.c, a, m)
+            .map_err(|x| x.to_string())?
+            .and_then(|x| x.id)
+            .ok_or("Este mes aún no tiene datos.")?;
+        let nombre = format!("{} {a}", NOMBRES_MES[m as usize - 1]);
+        accion_mes_hecho(id, nombre)(&mut e)
+    })();
+    match r {
+        Ok((m, d)) => {
+            notificaciones::notificar(ui, est, Tipo::Exito, &m, Some(d));
+            recargar(ui, est);
+        }
+        Err(m) => notificaciones::error(ui, est, &m),
+    }
+}
+
+/// Opciones de anticipación de las alertas, en días.
+const DIAS_ALERTA: [i64; 7] = [1, 3, 5, 7, 10, 15, 30];
+
+pub fn indice_dias_alerta(dias: i64) -> i32 {
+    DIAS_ALERTA.iter().position(|d| *d == dias).unwrap_or(3) as i32
+}
+
+/// Aplica un cambio a la configuración del Tablero, la guarda y la muestra.
+pub fn cambiar_modulo(
+    ui: &Ventana,
+    est: &Est,
+    tipo: i32,
+    cambio: impl FnOnce(&mut crate::tablero_config::ConfigTablero, usize),
+) {
+    {
+        let mut e = est.borrow_mut();
+        cambio(&mut e.tablero, tipo.max(0) as usize);
+        crate::tablero_config::guardar(&e.tablero);
+    }
+    recargar(ui, est);
+}
+
+pub fn abrir_editor_modulo(ui: &Ventana, est: &Est, tipo: i32) {
+    let g = ui.global::<crate::TableroD>();
+    if let Some(m) = est.borrow().tablero.modulo(tipo.max(0) as usize) {
+        g.set_editor(p_tablero::vista_modulo(m));
+        g.set_editor_abierto(true);
+    }
+}
+
+pub fn pedir_restablecer_tablero(ui: &Ventana, est: &Est) {
+    {
+        let mut e = est.borrow_mut();
+        e.confirmar_exito = true;
+        e.confirmar_sin_deshacer = true;
+        e.confirmar = Some(Box::new(|e: &mut Estado| {
+            e.tablero = Default::default();
+            crate::tablero_config::guardar(&e.tablero);
+            Ok((
+                "Tablero restablecido.".into(),
+                Box::new(|_: &_| Ok(())) as Deshacer,
+            ))
+        }));
+    }
+    let c = ui.global::<Confirmar>();
+    c.set_titulo(s("¿Restablecer el tablero?"));
+    c.set_texto(s(
+        "Vuelven los módulos, el orden y los tamaños iniciales. Se pierden tus cambios.",
+    ));
+    c.set_boton(s("Restablecer"));
+    c.set_visible(true);
+}
+
+/// Actualiza la lista de pagos cercanos y avisa si hay alguno nuevo desde el último aviso.
+pub fn actualizar_alertas(ui: &Ventana, est: &Est) {
+    let app = ui.global::<App>();
+    let dias = DIAS_ALERTA[(app.get_alerta_dias().max(0) as usize).min(DIAS_ALERTA.len() - 1)];
+    let r = if app.get_alerta_activas() {
+        let e = est.borrow();
+        vistas::alertas_pago(&e.c, &hoy_iso(), dias, app.get_alerta_vencidos())
+    } else {
+        Ok(Vec::new())
+    };
+    let alertas = match r {
+        Ok(a) => a,
+        Err(m) => return notificaciones::error(ui, est, &m),
+    };
+    let filas: Vec<_> = alertas
+        .iter()
+        .map(|a| {
+            let mut f = fila(&a.gasto);
+            let mut et = vec![s(vistas::texto_alerta(a.dias))];
+            et.extend(f.etiquetas.iter());
+            f.etiquetas = modelo(et);
+            f
+        })
+        .collect();
+    let texto = vistas::texto_alertas(&alertas);
+    app.set_alertas(modelo(filas));
+    app.set_alertas_texto(s(&texto));
+    let nuevas: Vec<(i64, bool)> = alertas
+        .iter()
+        .filter_map(|a| Some((a.gasto.gasto.id?, a.dias < 0)))
+        .filter(|k| !est.borrow().alertas_avisadas.contains(k))
+        .collect();
+    if !nuevas.is_empty() {
+        est.borrow_mut().alertas_avisadas.extend(nuevas);
+        if app.get_alerta_emergente() {
+            notificaciones::notificar(
+                ui,
+                est,
+                Tipo::Advertencia,
+                &format!("Tienes {texto}."),
+                None,
+            );
+        }
+    }
+}
+
 pub fn recargar(ui: &Ventana, est: &Est) {
+    sincronizar_meses(ui, est);
+    actualizar_alertas(ui, est);
     let vista = ui.global::<App>().get_vista();
     let r = {
         let mut e = est.borrow_mut();
         pantallas::general(ui, &e).and_then(|_| match vista {
             0 => p_tablero::cargar(ui, &mut e),
             1 => pantallas::resumen(ui, &mut e),
+            8 => pantallas::meses(ui, &mut e),
             2 => pantallas::movimientos(ui, &mut e),
             3 => pantallas::deudas(ui, &mut e),
             4 => pantallas::tarjetas(ui, &mut e),
@@ -46,18 +249,26 @@ pub fn recargar(ui: &Ventana, est: &Est) {
 }
 
 pub fn navegar(ui: &Ventana, est: &Est, vista: i32) {
-    ui.global::<App>().set_vista(vista.clamp(0, 7));
+    ui.global::<App>().set_vista(vista.clamp(0, 8));
     recargar(ui, est);
 }
 
 pub fn ajustes_cambiados(ui: &Ventana, est: &Est) {
     let t = ui.global::<Tema>();
+    let app = ui.global::<App>();
     guardar_ajustes(&Ajustes {
         tema: t.get_modo(),
         solido: t.get_solido(),
         sin_movimiento: t.get_sin_movimiento(),
         tam: est.borrow().tam_indice,
+        alertas_activas: app.get_alerta_activas(),
+        alertas_dias: DIAS_ALERTA
+            [(app.get_alerta_dias().max(0) as usize).min(DIAS_ALERTA.len() - 1)],
+        alertas_vencidos: app.get_alerta_vencidos(),
+        alertas_emergente: app.get_alerta_emergente(),
+        alertas_boton: app.get_alerta_boton(),
     });
+    actualizar_alertas(ui, est);
 }
 
 pub fn cambiar_tam(ui: &Ventana, est: &Est, i: i32) {
@@ -156,6 +367,11 @@ pub fn abrir_gasto(
             .unwrap_or_default()));
         f.set_t3(s(periodo.0.to_string()));
         f.set_t4(s(g.as_ref().map(|g| g.nota.clone()).unwrap_or_default()));
+        f.set_t5(s(g
+            .as_ref()
+            .and_then(|g| g.fecha_pago.as_deref())
+            .map(sueldapp_dominio::formato::formatear_fecha)
+            .unwrap_or_default()));
         f.set_s1(
             g.as_ref()
                 .and_then(|g| estados.iter().position(|x| *x == g.estado_id))
@@ -436,6 +652,7 @@ pub fn guardar(ui: &Ventana, est: &Est) {
                         tarjeta_id: tarjetas.get(f.get_s5() as usize).copied().flatten(),
                         nota: f.get_t4().to_string(),
                         fuera_de_bloque: f.get_b1(),
+                        fecha_pago: f.get_t5().to_string(),
                     },
                 )?;
                 Ok("Gasto guardado.".into())
@@ -652,6 +869,8 @@ pub fn borrar(ui: &Ventana, est: &Est) {
         }
     };
     let deshacible = !matches!(est.borrow().form, Some(Formulario::Item { .. }));
+    est.borrow_mut().confirmar_exito = false;
+    est.borrow_mut().confirmar_sin_deshacer = false;
     est.borrow_mut().confirmar = Some(Box::new(move |e: &mut Estado| {
         accion(e).map(|(m, d)| {
             (
@@ -675,7 +894,10 @@ pub fn confirmar_si(ui: &Ventana, est: &Est) {
     ui.global::<Confirmar>().set_visible(false);
     let accion = est.borrow_mut().confirmar.take();
     let Some(accion) = accion else { return };
-    let deshacible = !matches!(est.borrow().form, Some(Formulario::Item { .. }));
+    let deshacible = !matches!(est.borrow().form, Some(Formulario::Item { .. }))
+        && !est.borrow().confirmar_sin_deshacer;
+    est.borrow_mut().confirmar_sin_deshacer = false;
+    let exito = est.borrow().confirmar_exito;
     let r = accion(&mut est.borrow_mut());
     cerrar_form(ui, est);
     match r {
@@ -683,7 +905,11 @@ pub fn confirmar_si(ui: &Ventana, est: &Est) {
             notificaciones::notificar(
                 ui,
                 est,
-                Tipo::Advertencia,
+                if exito {
+                    Tipo::Exito
+                } else {
+                    Tipo::Advertencia
+                },
                 &msg,
                 if deshacible { Some(d) } else { None },
             );

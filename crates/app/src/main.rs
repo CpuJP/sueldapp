@@ -19,6 +19,7 @@ mod mascara;
 mod notificaciones;
 mod p_tablero;
 mod pantallas;
+mod tablero_config;
 mod vistas;
 
 use acciones::{con, recargar, Est};
@@ -26,6 +27,20 @@ use estado::{clave, de_clave, hoy, leer_ajustes, Estado, Rango};
 use slint::ComponentHandle;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+/// Atajo para callbacks con un argumento: clona el estado y la ventana débil.
+macro_rules! cb {
+    ($ui:expr, $est:expr, |$u:ident, $e:ident $(, $a:ident)*| $cuerpo:expr) => {{
+        let (est, debil) = ($est.clone(), $ui.as_weak());
+        move |$($a),*| {
+            if let Some($u) = debil.upgrade() {
+                let $e = &est;
+                let $u = &$u;
+                $cuerpo
+            }
+        }
+    }};
+}
 
 fn main() -> Result<(), slint::PlatformError> {
     let ruta = sueldapp_almacen::ruta_por_defecto();
@@ -65,6 +80,11 @@ fn main() -> Result<(), slint::PlatformError> {
     est.borrow_mut().tam_indice = a.tam;
     let app = ui.global::<App>();
     app.set_demo(demo_activo);
+    app.set_alerta_activas(a.alertas_activas);
+    app.set_alerta_dias(acciones::indice_dias_alerta(a.alertas_dias));
+    app.set_alerta_vencidos(a.alertas_vencidos);
+    app.set_alerta_emergente(a.alertas_emergente);
+    app.set_alerta_boton(a.alertas_boton);
     app.set_ruta_base(ruta.display().to_string().into());
 
     conectar(&ui, &est);
@@ -73,21 +93,14 @@ fn main() -> Result<(), slint::PlatformError> {
     if let Some(carpeta) = std::env::var_os("SUELDAPP_CAPTURAS") {
         capturas::iniciar(&ui, &est, carpeta.into());
     }
+    // Para que un día nuevo cuente aunque la app siga abierta sin tocarla.
+    let reloj = slint::Timer::default();
+    reloj.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_secs(3600),
+        cb!(ui, est, |u, e| acciones::actualizar_alertas(u, e)),
+    );
     ui.run()
-}
-
-/// Atajo para callbacks con un argumento: clona el estado y la ventana débil.
-macro_rules! cb {
-    ($ui:expr, $est:expr, |$u:ident, $e:ident $(, $a:ident)*| $cuerpo:expr) => {{
-        let (est, debil) = ($est.clone(), $ui.as_weak());
-        move |$($a),*| {
-            if let Some($u) = debil.upgrade() {
-                let $e = &est;
-                let $u = &$u;
-                $cuerpo
-            }
-        }
-    }};
 }
 
 fn conectar(ui: &Ventana, est: &Est) {
@@ -140,6 +153,74 @@ fn conectar(ui: &Ventana, est: &Est) {
         }
         recargar(u, e);
     }));
+    t.on_mover(cb!(ui, est, |u, e, k, atras| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| c.mover(k, atras)
+    )));
+    t.on_mover_a(cb!(ui, est, |u, e, k, d, antes| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| c.mover_a(k, d.max(0) as usize, antes)
+    )));
+    t.on_abrir_editor(cb!(ui, est, |u, e, k| acciones::abrir_editor_modulo(
+        u, e, k
+    )));
+    t.on_ocultar(cb!(ui, est, |u, e, k, visible| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| {
+            if let Some(m) = c.modulo_mut(k) {
+                m.visible = visible;
+            }
+        }
+    )));
+    t.on_cambiar_ancho(cb!(ui, est, |u, e, k, i| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| {
+            if let (Some(m), Some(a)) = (c.modulo_mut(k), tablero_config::ANCHOS.get(i as usize)) {
+                m.ancho = *a;
+            }
+        }
+    )));
+    t.on_cambiar_tam(cb!(ui, est, |u, e, k, i| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| {
+            if let Some(m) = c.modulo_mut(k) {
+                m.tam = i.clamp(0, 2) as u8;
+            }
+        }
+    )));
+    t.on_cambiar_vista(cb!(ui, est, |u, e, k, i| acciones::cambiar_modulo(
+        u,
+        e,
+        k,
+        |c, k| {
+            if let Some(m) = c.modulo_mut(k) {
+                m.vista = i.clamp(0, 2) as u8;
+            }
+        }
+    )));
+    t.on_escribir_titulo(cb!(ui, est, |_u, e, k, texto| {
+        let mut x = e.borrow_mut();
+        x.tablero.fijar_titulo(k as usize, &texto);
+        tablero_config::guardar(&x.tablero);
+    }));
+    t.on_aplicar_titulo(con(ui, est, recargar));
+    t.on_cambiar_espaciado(cb!(ui, est, |u, e, i| acciones::cambiar_modulo(
+        u,
+        e,
+        0,
+        |c, _| c.espaciado = i.clamp(0, 2) as u8
+    )));
+    t.on_restablecer(con(ui, est, acciones::pedir_restablecer_tablero));
     t.on_aplicar_anio(cb!(ui, est, |u, e, a| {
         e.borrow_mut().rango = Some(Rango {
             desde: (a, 1),
@@ -190,6 +271,18 @@ fn conectar(ui: &Ventana, est: &Est) {
     )));
     r.on_nuevo_ingreso(con(ui, est, |ui, e| acciones::abrir_ingreso(ui, e, None)));
     r.on_editar_mes(con(ui, est, acciones::abrir_mes));
+    r.on_marcar_hecho(con(ui, est, acciones::marcar_mes_hecho));
+    let m = ui.global::<MesesD>();
+    m.on_abrir(cb!(ui, est, |u, e, k| acciones::abrir_periodo(
+        u,
+        e,
+        de_clave(k)
+    )));
+    m.on_marcar_hecho(cb!(ui, est, |u, e, k| acciones::marcar_periodo_hecho(
+        u,
+        e,
+        de_clave(k)
+    )));
     r.on_paginar(cb!(ui, est, |u, e, lista, sig| {
         {
             let mut x = e.borrow_mut();

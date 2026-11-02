@@ -1,15 +1,16 @@
 import { Tema } from "tema.slint";
-import { App, Util, TableroD, ResumenD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar, Aviso } from "estado.slint";
+import { App, Util, TableroD, ResumenD, MesesD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar, Aviso } from "estado.slint";
 import { Vidrio, Boton, Icono, Iconos } from "componentes.slint";
 import { PantallaTablero } from "pantallas/tablero.slint";
 import { PantallaResumen } from "pantallas/resumen.slint";
 import { PantallaMovimientos } from "pantallas/movimientos.slint";
 import { PantallaDeudas, PantallaTarjetas } from "pantallas/deudas.slint";
 import { PantallaCatalogos, PantallaDatos, PantallaAjustes } from "pantallas/otras.slint";
-import { Dialogo, DialogoConfirmar } from "dialogos.slint";
+import { PantallaMeses } from "pantallas/meses.slint";
+import { Dialogo, DialogoAlertas, DialogoAnadir, DialogoConfirmar, DialogoModulo } from "dialogos.slint";
 import { Notificaciones } from "notificaciones.slint";
 
-export { Tema, App, Util, TableroD, ResumenD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
+export { Tema, App, Util, TableroD, ResumenD, MesesD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
 
 component Fondo inherits Rectangle {
     background: Tema.fondo;
@@ -139,15 +140,18 @@ export component Ventana inherits Window {
     min-height: 600px;
     background: Tema.fondo;
     default-font-size: 15px;
-    property <[string]> nombres: ["Tablero", "Resumen", "Movimientos", "Deudas", "Tarjetas", "Catálogos", "Importar y exportar", "Ajustes"];
-    property <[string]> iconos: [Iconos.tablero, Iconos.resumen, Iconos.movimientos, Iconos.deudas, Iconos.tarjetas, Iconos.catalogos, Iconos.datos, Iconos.ajustes];
+    property <[string]> nombres: ["Tablero", "Resumen", "Meses", "Movimientos", "Deudas", "Tarjetas", "Catálogos", "Importar y exportar", "Ajustes"];
+    property <[string]> iconos: [Iconos.tablero, Iconos.resumen, Iconos.calendario, Iconos.movimientos, Iconos.deudas, Iconos.tarjetas, Iconos.catalogos, Iconos.datos, Iconos.ajustes];
+
+    // Número de vista de cada entrada del menú.
+    property <[int]> vistas: [0, 1, 8, 2, 3, 4, 5, 6, 7];
 
     forward-focus: atajos;
     atajos := FocusScope {
         key-pressed(e) => {
             if e.modifiers.alt {
-                if e.text >= "1" && e.text <= "8" {
-                    App.navegar(e.text.to-float() - 1);
+                if e.text >= "1" && e.text <= "9" {
+                    App.navegar(root.vistas[e.text.to-float() - 1]);
                     return accept;
                 }
                 if App.vista == 1 && e.text == Key.LeftArrow {
@@ -213,13 +217,20 @@ export component Ventana inherits Window {
                         texto: n;
                         icono: root.iconos[i];
                         atajo: "Alt " + (i + 1);
-                        actual: App.vista == i;
+                        actual: App.vista == root.vistas[i];
                         activado => {
-                            App.navegar(i);
+                            App.navegar(root.vistas[i]);
                         }
                     }
                     Rectangle {
                         vertical-stretch: 1;
+                    }
+                    if App.alertas.length > 0 && App.alerta-boton: Boton {
+                        texto: App.alertas-texto;
+                        icono: Iconos.alerta;
+                        clicked => {
+                            App.alertas-abiertas = true;
+                        }
                     }
                     if App.demo: Rectangle {
                         height: 34px;
@@ -267,6 +278,10 @@ export component Ventana inherits Window {
                     width: parent.width;
                     height: parent.height;
                 }
+                if App.vista == 8: PantallaMeses {
+                    width: parent.width;
+                    height: parent.height;
+                }
                 if App.vista == 7: PantallaAjustes {
                     width: parent.width;
                     height: parent.height;
@@ -274,6 +289,34 @@ export component Ventana inherits Window {
             }
         }
 
+        if App.vista == 0 && TableroD.editando && TableroD.arr-tipo < 0: Boton {
+            width: self.preferred-width;
+            x: 266px + (root.width - 266px - self.width) / 2;
+            y: root.height - self.height - 26px;
+            primario: true;
+            texto: "Añadir módulo";
+            icono: Iconos.mas;
+            clicked => {
+                TableroD.anadir-abierto = true;
+            }
+        }
+        // El módulo que se está arrastrando sigue al puntero.
+        if TableroD.arr-tipo >= 0: Rectangle {
+            x: TableroD.arr-x + 14px;
+            y: TableroD.arr-y + 14px;
+            width: etiqueta-arrastre.preferred-width + 32px;
+            height: 42px;
+            border-radius: 21px;
+            background: Tema.acento;
+            etiqueta-arrastre := Text {
+                text: TableroD.arr-titulo;
+                color: Tema.acento-texto;
+                font-weight: 700;
+            }
+        }
+        if TableroD.editor-abierto: DialogoModulo { }
+        if TableroD.anadir-abierto: DialogoAnadir { }
+        if App.alertas-abiertas: DialogoAlertas { }
         if Form.tipo != 0: Dialogo { }
         if Confirmar.visible: DialogoConfirmar { }
         Notificaciones {

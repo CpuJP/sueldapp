@@ -223,6 +223,7 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
                 "fuera_de_bloque",
                 "orden",
                 "origen",
+                "fecha_pago",
                 "anio",
                 "mes",
                 "estado",
@@ -248,6 +249,7 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
                         g.fuera_de_bloque,
                         g.orden,
                         g.origen.clone(),
+                        g.fecha_pago.clone(),
                         i64::from(a),
                         i64::from(m)
                     ];
@@ -548,6 +550,8 @@ pub fn restaurar(c: &Connection, hojas: &[Hoja], inf: &mut Informe) -> Result<()
             fuera_de_bloque: f.bool("fuera_de_bloque")?,
             orden: f.entero("orden")?.unwrap_or(0),
             origen: f.txt_opc("origen"),
+            // Las exportaciones anteriores no traen esta columna.
+            fecha_pago: f.txt_opc("fecha_pago"),
         };
         g.validar()?;
         repo::restaurar_gasto(c, &g)?;

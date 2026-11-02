@@ -1,7 +1,7 @@
 import { ScrollView } from "std-widgets.slint";
 import { Tema } from "../tema.slint";
 import { Cifra, FilaTabla } from "../estado.slint";
-import { Vidrio, Etiqueta, Ayuda, Separador } from "../componentes.slint";
+import { Vidrio, Etiqueta, Ayuda, Separador, EstadoChip } from "../componentes.slint";
 
 // Pantalla: barra de título fija con acciones (@children de la barra) y contenido desplazable.
 export component Encabezado inherits Vidrio {
@@ -149,6 +149,8 @@ export component TablaTexto inherits VerticalLayout {
     in property <[FilaTabla]> filas;
     callback fila-activada(int);
     in property <bool> activable;
+    // La segunda columna muestra el distintivo de `estado` en vez de su texto.
+    in property <bool> con-estado;
     HorizontalLayout {
         padding: 8px;
         spacing: 8px;
@@ -166,14 +168,25 @@ export component TablaTexto inherits VerticalLayout {
             padding-left: 8px;
             padding-right: 8px;
             spacing: 8px;
-            for c[i] in f.c: Text {
-                text: c;
-                color: f.negativos.length > i && f.negativos[i] ? Tema.negativo : Tema.texto;
-                font-size: 14px;
-                vertical-alignment: center;
+            for c[i] in f.c: Rectangle {
                 width: (root.width - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1) * (i == 0 ? 2 : 1);
-                horizontal-alignment: i == 0 ? left : right;
-                overflow: elide;
+                if root.con-estado && i == 1 && f.estado != "": EstadoChip {
+                    x: parent.width - self.width;
+                    y: (parent.height - self.height) / 2;
+                    width: self.preferred-width;
+                    texto: f.estado;
+                    tipo: f.tipo;
+                }
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: c;
+                    color: f.negativos.length > i && f.negativos[i] ? Tema.negativo : Tema.texto;
+                    font-size: 14px;
+                    vertical-alignment: center;
+                    horizontal-alignment: i == 0 ? left : right;
+                    overflow: elide;
+                }
             }
         }
         Separador {

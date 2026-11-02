@@ -1,6 +1,7 @@
 import { Tema } from "tema.slint";
-import { Form, Confirmar, App } from "estado.slint";
-import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda } from "componentes.slint";
+import { Form, Confirmar, App, ResumenD, TableroD } from "estado.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda, Chip, Separador, Iconos } from "componentes.slint";
 
 component Campos inherits VerticalLayout {
     in property <string> etiqueta;
@@ -154,6 +155,13 @@ export component Dialogo inherits Rectangle {
                         }
                         Rectangle {
                             horizontal-stretch: 1;
+                        }
+                    }
+                    Campos {
+                        etiqueta: "Fecha de pago (día/mes/año, opcional)";
+                        Campo {
+                            etiqueta: "Fecha de pago, día/mes/año, opcional";
+                            texto <=> Form.t5;
                         }
                     }
                     Campos {
@@ -321,7 +329,7 @@ export component Dialogo inherits Rectangle {
                 }
                 // 5: mes
                 if Form.tipo == 5: Casilla {
-                    texto: "Mes cerrado (ya no esperas más movimientos)";
+                    texto: "Mes hecho (ya pagaste todo)";
                     marcada <=> Form.b1;
                 }
                 // 6: elemento de catálogo
@@ -375,6 +383,315 @@ export component Dialogo inherits Rectangle {
                         primario: true;
                         clicked => {
                             Form.guardar();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Ajustes de un módulo del tablero; también permite hacer con teclado lo que se hace arrastrando.
+export component DialogoModulo inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    property <bool> tiene-opciones: TableroD.editor.con-tam || TableroD.editor.vistas.length > 0;
+    function cerrar() {
+        TableroD.editor-abierto = false;
+        TableroD.aplicar-titulo();
+    }
+    Fondo-Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+    FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                root.cerrar();
+                return accept;
+            }
+            reject
+        }
+        Vidrio {
+            fuerte: true;
+            width: min(520px, root.width - 40px);
+            height: c.preferred-height;
+            x: (root.width - self.width) / 2;
+            y: max(20px, (root.height - self.height) / 2);
+            accessible-role: groupbox;
+            accessible-label: "Editar " + TableroD.editor.titulo;
+            c := VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+                Titulo {
+                    text: TableroD.editor.titulo;
+                    font-size: 19px;
+                }
+                if TableroD.editor.con-titulo: Campos {
+                    etiqueta: "Título";
+                    Campo {
+                        etiqueta: "Título del módulo";
+                        texto: TableroD.editor.titulo-propio;
+                        marcador: TableroD.editor.titulo;
+                        editado(x) => {
+                            TableroD.escribir-titulo(TableroD.editor.tipo, x);
+                        }
+                        aceptado => {
+                            root.cerrar();
+                        }
+                    }
+                }
+                Campos {
+                    etiqueta: "Ancho";
+                    Selector {
+                        etiqueta: "Ancho del módulo";
+                        opciones: ["Un tercio", "La mitad", "Dos tercios", "Completo"];
+                        indice: TableroD.editor.ancho-i;
+                        cambiado(i) => {
+                            TableroD.cambiar-ancho(TableroD.editor.tipo, i);
+                        }
+                    }
+                }
+                if TableroD.editor.con-tam: Campos {
+                    etiqueta: "Tamaño";
+                    Selector {
+                        etiqueta: "Tamaño del módulo";
+                        opciones: TableroD.editor.tams;
+                        indice: TableroD.editor.tam;
+                        cambiado(i) => {
+                            TableroD.cambiar-tam(TableroD.editor.tipo, i);
+                        }
+                    }
+                }
+                if TableroD.editor.vistas.length > 0: Campos {
+                    etiqueta: "Vista";
+                    Selector {
+                        etiqueta: "Vista del módulo";
+                        opciones: TableroD.editor.vistas;
+                        indice: TableroD.editor.vista;
+                        cambiado(i) => {
+                            TableroD.cambiar-vista(TableroD.editor.tipo, i);
+                        }
+                    }
+                }
+                Campos {
+                    etiqueta: "Lugar";
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Boton {
+                            texto: "Antes";
+                            icono: Iconos.anterior;
+                            etiqueta-accesible: "Mover antes";
+                            clicked => {
+                                TableroD.mover(TableroD.editor.tipo, true);
+                            }
+                        }
+                        Boton {
+                            texto: "Después";
+                            icono: Iconos.siguiente;
+                            etiqueta-accesible: "Mover después";
+                            clicked => {
+                                TableroD.mover(TableroD.editor.tipo, false);
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Boton {
+                        texto: "Quitar";
+                        peligro: true;
+                        clicked => {
+                            TableroD.ocultar(TableroD.editor.tipo, false);
+                            root.cerrar();
+                        }
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                    }
+                    Boton {
+                        texto: "Listo";
+                        primario: true;
+                        init => {
+                            self.focus();
+                        }
+                        clicked => {
+                            root.cerrar();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DialogoAnadir inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    Fondo-Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+    FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                TableroD.anadir-abierto = false;
+                return accept;
+            }
+            reject
+        }
+        Vidrio {
+            fuerte: true;
+            width: min(480px, root.width - 40px);
+            height: min(c.preferred-height, root.height - 40px);
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            accessible-role: groupbox;
+            accessible-label: "Añadir módulo";
+            c := VerticalLayout {
+                padding: 24px;
+                spacing: 10px;
+                Titulo {
+                    text: "Añadir módulo";
+                    font-size: 19px;
+                }
+                if TableroD.ocultos.length == 0: Ayuda {
+                    text: "Ya están todos en el tablero. Pulsa − en un módulo para quitarlo.";
+                }
+                for o in TableroD.ocultos: HorizontalLayout {
+                    alignment: start;
+                    Boton {
+                        texto: o.titulo;
+                        icono: Iconos.mas;
+                        etiqueta-accesible: "Añadir " + o.titulo;
+                        clicked => {
+                            TableroD.ocultar(o.tipo, true);
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Boton {
+                        texto: "Cerrar";
+                        init => {
+                            self.focus();
+                        }
+                        clicked => {
+                            TableroD.anadir-abierto = false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component DialogoAlertas inherits Rectangle {
+    width: 100%;
+    height: 100%;
+    Fondo-Modal {
+        width: parent.width;
+        height: parent.height;
+    }
+    FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Escape {
+                App.alertas-abiertas = false;
+                return accept;
+            }
+            reject
+        }
+        Vidrio {
+            fuerte: true;
+            width: min(720px, root.width - 40px);
+            height: min(c.preferred-height, root.height - 40px);
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            accessible-role: groupbox;
+            accessible-label: "Pagos cercanos";
+            c := VerticalLayout {
+                padding: 24px;
+                spacing: 14px;
+                Titulo {
+                    text: "Pagos cercanos";
+                    font-size: 19px;
+                }
+                if App.alertas.length == 0: Ayuda {
+                    text: "No tienes pagos vencidos ni próximos.";
+                }
+                if App.alertas.length > 0: ScrollView {
+                    vertical-stretch: 1;
+                    preferred-height: lista.preferred-height;
+                    content-height: lista.preferred-height;
+                    content-width: self.visible-width;
+                    lista := VerticalLayout {
+                        width: parent.visible-width;
+                        for g[i] in App.alertas: VerticalLayout {
+                            if i > 0: Separador { }
+                            HorizontalLayout {
+                                padding-top: 10px;
+                                padding-bottom: 10px;
+                                padding-right: 12px;
+                                spacing: 10px;
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    spacing: 3px;
+                                    alignment: center;
+                                    Text {
+                                        text: g.titulo + " · " + g.periodo;
+                                        color: Tema.texto;
+                                        overflow: elide;
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        alignment: start;
+                                        // Solo el vencimiento y la fecha: el resto no cabe en el diálogo.
+                                        for e[j] in g.etiquetas: Chip {
+                                            visible: j < 2;
+                                            width: j < 2 ? self.preferred-width : 0px;
+                                            texto: e;
+                                        }
+                                    }
+                                    Text {
+                                        text: g.monto;
+                                        color: Tema.texto;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Boton {
+                                        texto: "Marcar pagado";
+                                        icono: Iconos.check;
+                                        clicked => {
+                                            ResumenD.marcar-pagado(g.id);
+                                        }
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Boton {
+                                        texto: "Editar";
+                                        icono: Iconos.lapiz;
+                                        clicked => {
+                                            App.alertas-abiertas = false;
+                                            App.abrir-gasto(g.id);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    alignment: end;
+                    Boton {
+                        texto: "Cerrar";
+                        init => {
+                            self.focus();
+                        }
+                        clicked => {
+                            App.alertas-abiertas = false;
                         }
                     }
                 }

@@ -7,7 +7,10 @@ use std::path::Path;
 
 /// Migraciones en orden. `PRAGMA user_version` guarda cuántas se aplicaron.
 /// Nunca edites una migración ya publicada: añade una nueva al final.
-const MIGRACIONES: &[&str] = &[include_str!("../migraciones/0001_inicial.sql")];
+const MIGRACIONES: &[&str] = &[
+    include_str!("../migraciones/0001_inicial.sql"),
+    include_str!("../migraciones/0002_fecha_pago.sql"),
+];
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

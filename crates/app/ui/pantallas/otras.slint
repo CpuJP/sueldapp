@@ -1,7 +1,7 @@
 import { AboutSlint } from "std-widgets.slint";
 import { Tema } from "../tema.slint";
 import { CatsD, DatosD, App, ItemFila, Pagina } from "../estado.slint";
-import { Boton, Iconos, Campo, Separador, Ayuda, Titulo, Paginador, Interruptor, Casilla, Segmentado, EstadoChip } from "../componentes.slint";
+import { Boton, Iconos, Campo, Separador, Ayuda, Titulo, Paginador, Interruptor, Casilla, Segmentado, EstadoChip, Selector } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel, Cifras, TablaTexto } from "comun.slint";
 import { ListaLineas } from "tablero.slint";
 
@@ -353,6 +353,72 @@ export component PantallaAjustes inherits VerticalLayout {
                     opciones: ["Sistema", "Claro", "Oscuro"];
                     iconos: [Iconos.sistema, Iconos.sol, Iconos.luna];
                     indice <=> Tema.modo;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+        }
+        Panel {
+            Titulo {
+                text: "Alertas de pagos";
+            }
+            FilaAjuste {
+                titulo: "Activar alertas";
+                ayuda: "Avisa de los pagos pendientes con fecha de pago cercana.";
+                Interruptor {
+                    etiqueta: "Activar alertas";
+                    activo <=> App.alerta-activas;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            if App.alerta-activas: Separador { }
+            if App.alerta-activas: FilaAjuste {
+                titulo: "Avisar con anticipación";
+                ayuda: "Cuántos días antes de la fecha de pago empieza la alerta.";
+                Selector {
+                    width: 130px;
+                    etiqueta: "Días de anticipación";
+                    opciones: ["1 día", "3 días", "5 días", "7 días", "10 días", "15 días", "30 días"];
+                    indice <=> App.alerta-dias;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            if App.alerta-activas: Separador { }
+            if App.alerta-activas: FilaAjuste {
+                titulo: "Incluir pagos vencidos";
+                ayuda: "También avisa de los pagos cuya fecha ya pasó.";
+                Interruptor {
+                    etiqueta: "Incluir pagos vencidos";
+                    activo <=> App.alerta-vencidos;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            if App.alerta-activas: Separador { }
+            if App.alerta-activas: FilaAjuste {
+                titulo: "Notificación emergente";
+                ayuda: "Muestra un aviso al abrir la app y cuando aparece una alerta nueva.";
+                Interruptor {
+                    etiqueta: "Notificación emergente";
+                    activo <=> App.alerta-emergente;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            if App.alerta-activas: Separador { }
+            if App.alerta-activas: FilaAjuste {
+                titulo: "Botón en el menú";
+                ayuda: "Muestra los pagos cercanos en el menú lateral.";
+                Interruptor {
+                    etiqueta: "Botón en el menú";
+                    activo <=> App.alerta-boton;
                     cambiado => {
                         App.ajustes-cambiados();
                     }

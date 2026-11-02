@@ -57,6 +57,8 @@ pub struct Gasto {
     pub orden: i64,
     /// Celda de origen en el `.ods` (`Nómina!L163`); `None` si se creó en la app.
     pub origen: Option<String>,
+    /// Fecha de pago de la cuota o gasto, `AAAA-MM-DD`.
+    pub fecha_pago: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -143,7 +145,13 @@ impl Mes {
 impl Gasto {
     pub fn validar(&self) -> Result<(), Invalido> {
         no_vacio(&self.concepto, "el concepto")?;
-        no_negativo(self.monto, "El monto")
+        no_negativo(self.monto, "El monto")?;
+        match &self.fecha_pago {
+            Some(f) if !formato::fecha_valida(f) => {
+                Err(Invalido("La fecha de pago no es válida.".into()))
+            }
+            _ => Ok(()),
+        }
     }
 }
 
@@ -221,6 +229,7 @@ mod tests {
             fuera_de_bloque: false,
             orden: 0,
             origen: None,
+            fecha_pago: None,
         }
     }
 
@@ -229,6 +238,11 @@ mod tests {
         assert!(gasto("Internet", dec!(12500)).validar().is_ok());
         assert!(gasto("  ", dec!(1)).validar().is_err());
         assert!(gasto("Tigo", dec!(-1)).validar().is_err());
+        let mut g = gasto("Cuota", dec!(1));
+        g.fecha_pago = Some("2026-11-23".into());
+        assert!(g.validar().is_ok());
+        g.fecha_pago = Some("23/11/2026".into());
+        assert!(g.validar().is_err());
     }
 
     #[test]

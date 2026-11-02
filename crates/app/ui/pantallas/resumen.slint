@@ -1,6 +1,6 @@
 import { Tema } from "../tema.slint";
 import { ResumenD, App } from "../estado.slint";
-import { Vidrio, Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Segmentado, TablaGastos, Paginador, Chip } from "../componentes.slint";
+import { Vidrio, Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Segmentado, TablaGastos, Paginador, Chip, EstadoChip } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel, Heroe, TablaTexto } from "comun.slint";
 
 export component PantallaResumen inherits VerticalLayout {
@@ -104,14 +104,28 @@ export component PantallaResumen inherits VerticalLayout {
             if ResumenD.modo == 0: HorizontalLayout {
                 spacing: 8px;
                 alignment: start;
-                if ResumenD.cerrado: Chip {
-                    texto: "Mes cerrado";
+                if ResumenD.situacion != "": VerticalLayout {
+                    alignment: center;
+                    EstadoChip {
+                        texto: ResumenD.situacion;
+                        tipo: ResumenD.situacion-tipo;
+                    }
                 }
                 Boton {
                     texto: "Editar mes";
                     icono: Iconos.lapiz;
                     clicked => {
                         ResumenD.editar-mes();
+                    }
+                }
+            }
+            if ResumenD.modo == 0 && ResumenD.por-confirmar: HorizontalLayout {
+                alignment: start;
+                Boton {
+                    texto: "Marcar como hecho";
+                    primario: true;
+                    clicked => {
+                        ResumenD.marcar-hecho();
                     }
                 }
             }
@@ -309,7 +323,8 @@ export component PantallaResumen inherits VerticalLayout {
                 text: "Mes a mes";
             }
             TablaTexto {
-                encabezados: ["Mes", "Ingresos", "Gastos", "Pagado", "Restante"];
+                encabezados: ["Mes", "Estado", "Ingresos", "Gastos", "Pagado", "Restante"];
+                con-estado: true;
                 filas: ResumenD.anio;
                 activable: true;
                 fila-activada(i) => {

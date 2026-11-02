@@ -524,6 +524,7 @@ pub fn importar(c: &Connection, hojas: &[Hoja], inf: &mut Informe) -> Result<(),
                 fuera_de_bloque: false,
                 orden: i64::from(f.numero),
                 origen: Some(o.clone()),
+                fecha_pago: None,
             },
         )?;
         suma_hoja += monto;

@@ -184,6 +184,8 @@ export component Grafico inherits Rectangle {
 export component BarrasH inherits VerticalLayout {
     in property <[Grupo]> grupos;
     in property <color> color: Tema.serie-1;
+    // Solo nombres y montos, sin barras.
+    in property <bool> lista;
     spacing: 12px;
     padding-top: 8px;
     if grupos.length == 0: Ayuda {
@@ -217,7 +219,7 @@ export component BarrasH inherits VerticalLayout {
                 vertical-alignment: center;
             }
         }
-        Rectangle {
+        if !root.lista: Rectangle {
             height: 8px;
             border-radius: 4px;
             background: Tema.rejilla;

@@ -666,6 +666,7 @@ fn importar_original(
                     fuera_de_bloque: g.fuera_de_bloque,
                     orden: i64::from(g.monto.fila),
                     origen: Some(o(celda.0, celda.1)),
+                    fecha_pago: None,
                 },
             )?;
             conteos.gastos += 1;

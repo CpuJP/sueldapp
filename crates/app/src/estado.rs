@@ -1,5 +1,6 @@
 //! Estado de la app entre pantallas: conexión, periodo del tablero, páginas, deshacer y ajustes.
 
+use chrono::Datelike;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use sueldapp_almacen::Connection;
@@ -61,6 +62,15 @@ pub struct Estado {
     pub ingresos_visibles: HashMap<i64, sueldapp_dominio::Ingreso>,
     pub form: Option<Formulario>,
     pub confirmar: Option<AccionConfirmada>,
+    /// Si la acción por confirmar es buena noticia (aviso verde) en vez de un borrado.
+    pub confirmar_exito: bool,
+    /// La acción por confirmar no se puede deshacer.
+    pub confirmar_sin_deshacer: bool,
+    pub tablero: crate::tablero_config::ConfigTablero,
+    /// Meses completos en la última recarga; `None` antes de la primera.
+    pub meses_completos: Option<HashSet<i64>>,
+    /// Alertas ya avisadas: (gasto, vencido). Vencer vuelve a avisar una vez.
+    pub alertas_avisadas: HashSet<(i64, bool)>,
     pub deshacer: HashMap<i32, Deshacer>,
     pub avisos: Vec<crate::Aviso>,
     pub sig_aviso: i32,
@@ -84,6 +94,11 @@ impl Estado {
             ingresos_visibles: HashMap::new(),
             form: None,
             confirmar: None,
+            confirmar_exito: false,
+            confirmar_sin_deshacer: false,
+            tablero: crate::tablero_config::leer(),
+            meses_completos: None,
+            alertas_avisadas: HashSet::new(),
             deshacer: HashMap::new(),
             avisos: Vec::new(),
             sig_aviso: 1,
@@ -97,22 +112,15 @@ impl Estado {
     }
 }
 
-/// Mes actual (UTC; en Colombia solo difiere las últimas 5 horas del último día del mes).
+/// Mes actual en la hora local del equipo.
 pub fn hoy() -> Periodo {
-    let dias = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() / 86_400)
-        .unwrap_or(0) as i64;
-    // Algoritmo civil de Howard Hinnant.
-    let z = dias + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z - era * 146_097;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let mes = if mp < 10 { mp + 3 } else { mp - 9 };
-    let anio = yoe + era * 400 + i64::from(mes <= 2);
-    (anio as i32, mes as u32)
+    let h = chrono::Local::now().date_naive();
+    (h.year(), h.month())
+}
+
+/// Fecha actual en la hora local del equipo, `AAAA-MM-DD`.
+pub fn hoy_iso() -> String {
+    chrono::Local::now().date_naive().to_string()
 }
 
 pub fn clave(p: Periodo) -> i32 {
@@ -129,6 +137,11 @@ pub struct Ajustes {
     pub solido: bool,
     pub sin_movimiento: bool,
     pub tam: i32,
+    pub alertas_activas: bool,
+    pub alertas_dias: i64,
+    pub alertas_vencidos: bool,
+    pub alertas_emergente: bool,
+    pub alertas_boton: bool,
 }
 
 fn ruta_ajustes() -> PathBuf {
@@ -141,6 +154,11 @@ pub fn leer_ajustes() -> Ajustes {
         solido: false,
         sin_movimiento: false,
         tam: 0,
+        alertas_activas: true,
+        alertas_dias: 7,
+        alertas_vencidos: true,
+        alertas_emergente: true,
+        alertas_boton: true,
     };
     if let Ok(t) = std::fs::read_to_string(ruta_ajustes()) {
         for l in t.lines() {
@@ -150,6 +168,11 @@ pub fn leer_ajustes() -> Ajustes {
                     "solido" => a.solido = v.trim() == "1",
                     "sin_movimiento" => a.sin_movimiento = v.trim() == "1",
                     "tam" => a.tam = v.trim().parse().unwrap_or(0),
+                    "alertas_activas" => a.alertas_activas = v.trim() != "0",
+                    "alertas_dias" => a.alertas_dias = v.trim().parse().unwrap_or(7),
+                    "alertas_vencidos" => a.alertas_vencidos = v.trim() != "0",
+                    "alertas_emergente" => a.alertas_emergente = v.trim() != "0",
+                    "alertas_boton" => a.alertas_boton = v.trim() != "0",
                     _ => {}
                 }
             }
@@ -160,11 +183,17 @@ pub fn leer_ajustes() -> Ajustes {
 
 pub fn guardar_ajustes(a: &Ajustes) {
     let t = format!(
-        "tema={}\nsolido={}\nsin_movimiento={}\ntam={}\n",
+        "tema={}\nsolido={}\nsin_movimiento={}\ntam={}\nalertas_activas={}\nalertas_dias={}\n\
+         alertas_vencidos={}\nalertas_emergente={}\nalertas_boton={}\n",
         a.tema,
         u8::from(a.solido),
         u8::from(a.sin_movimiento),
-        a.tam
+        a.tam,
+        u8::from(a.alertas_activas),
+        a.alertas_dias,
+        u8::from(a.alertas_vencidos),
+        u8::from(a.alertas_emergente),
+        u8::from(a.alertas_boton)
     );
     // Si no se puede escribir, los ajustes duran solo esta sesión.
     let _ = std::fs::write(ruta_ajustes(), t);

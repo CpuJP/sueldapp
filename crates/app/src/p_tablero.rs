@@ -1,12 +1,15 @@
 //! Pantalla Tablero: indicadores, gráficos y desgloses del periodo elegido.
 
-use crate::comun::{cifra, cifra_texto, modelo, s};
-use crate::estado::{clave, de_clave, hoy, Estado, Rango};
+use crate::comun::{cifra, cifra_texto, cifras, modelo, s, textos, tipo_situacion};
+use crate::estado::{clave, de_clave, hoy, hoy_iso, Estado, Rango};
 use crate::geometria::{f, rotulo, trazos, Escala};
+use crate::tablero_config::{clase, Clase, Modulo, ANCHOS};
 use crate::vistas::{self, GrupoVista, Monto};
-use crate::{BarraMes, FilaTabla, Grupo, Linea, Preset, TableroD, Ventana};
+use crate::{BarraMes, FilaModulos, FilaTabla, Grupo, Linea, ModuloV, Preset, TableroD, Ventana};
+use rust_decimal::prelude::ToPrimitive;
 use slint::ComponentHandle;
 use sueldapp_almacen::repo;
+use sueldapp_dominio::calculos::{resumir_estados, SituacionMes};
 use sueldapp_dominio::Periodo;
 
 const CORTOS: [&str; 12] = [
@@ -53,6 +56,65 @@ pub fn aplicar_preset(est: &mut Estado, i: usize) -> Result<(), String> {
     Ok(())
 }
 
+fn primeros<T>(v: &[T], n: usize) -> &[T] {
+    &v[..n.min(v.len())]
+}
+
+pub fn vista_modulo(m: &Modulo) -> ModuloV {
+    let clase_m = clase(m.tipo);
+    ModuloV {
+        tipo: m.tipo as i32,
+        titulo: s(m.titulo()),
+        titulo_propio: s(&m.titulo),
+        ancho: i32::from(m.ancho_real()),
+        ancho_i: ANCHOS.iter().position(|a| *a == m.ancho).unwrap_or(3) as i32,
+        tam: i32::from(m.tam),
+        vista: i32::from(m.vista),
+        columnas: m.columnas(),
+        alto: m.alto_grafico(),
+        con_titulo: clase_m != Clase::Heroe,
+        con_tam: matches!(clase_m, Clase::Grafico | Clase::Grupos | Clase::Lineas),
+        vistas: textos(match clase_m {
+            Clase::Cifras => vec!["2 columnas", "3 columnas", "4 columnas"],
+            Clase::Grupos => vec!["Barras", "Lista"],
+            _ => vec![],
+        }),
+        tams: textos(if clase_m == Clase::Grafico {
+            ["Bajo", "Medio", "Alto"]
+        } else {
+            ["3 elementos", "5 elementos", "Todos"]
+        }),
+    }
+}
+
+/// Pasa a la interfaz los módulos visibles por filas, los ocultos y las opciones de cada uno.
+fn configurar_modulos(ui: &Ventana, est: &Estado) {
+    let g = ui.global::<TableroD>();
+    let c = &est.tablero;
+    let vista = vista_modulo;
+    if g.get_editor_abierto() {
+        if let Some(m) = c.modulo(g.get_editor().tipo.max(0) as usize) {
+            g.set_editor(vista(m));
+        }
+    }
+    g.set_filas(modelo(
+        c.filas()
+            .iter()
+            .map(|f| FilaModulos {
+                modulos: modelo(f.iter().map(|m| vista(m)).collect()),
+            })
+            .collect(),
+    ));
+    g.set_ocultos(modelo(
+        c.modulos
+            .iter()
+            .filter(|m| !m.visible)
+            .map(&vista)
+            .collect(),
+    ));
+    g.set_espaciado(i32::from(c.espaciado));
+}
+
 fn grupos(v: &[GrupoVista], detalle: impl Fn(&GrupoVista) -> String) -> Vec<Grupo> {
     let max = v.iter().map(|g| f(g.monto.valor)).fold(0.0_f64, f64::max);
     v.iter()
@@ -69,6 +131,7 @@ fn fila_tabla(c: Vec<String>, neg: Vec<bool>) -> FilaTabla {
     FilaTabla {
         c: modelo(c.into_iter().map(|x| s(&x)).collect()),
         negativos: modelo(neg),
+        ..Default::default()
     }
 }
 
@@ -129,6 +192,13 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
     g.set_datos_hasta(clave(max));
     g.set_hoy(clave(hoy()));
     g.set_sin_meses(t.meses.is_empty());
+    configurar_modulos(ui, est);
+    let cfg = est.tablero.clone();
+    let tope = |tipo: usize| {
+        cfg.modulo(tipo)
+            .and_then(|m| m.limite())
+            .unwrap_or(usize::MAX)
+    };
     if t.meses.is_empty() {
         return Ok(());
     }
@@ -288,11 +358,11 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
             .map(|p| p.texto.clone())
             .unwrap_or_default()
     };
-    g.set_destino(modelo(grupos(&t.por_destino, pct)));
-    g.set_categoria(modelo(grupos(&t.por_categoria, pct)));
-    g.set_estado(modelo(grupos(&t.por_estado, pct)));
-    g.set_fuentes(modelo(grupos(&t.por_fuente, pct)));
-    g.set_conceptos(modelo(grupos(&t.top_conceptos, |x| {
+    g.set_destino(modelo(grupos(primeros(&t.por_destino, tope(6)), pct)));
+    g.set_categoria(modelo(grupos(primeros(&t.por_categoria, tope(7)), pct)));
+    g.set_estado(modelo(grupos(primeros(&t.por_estado, tope(8)), pct)));
+    g.set_fuentes(modelo(grupos(primeros(&t.por_fuente, tope(12)), pct)));
+    g.set_conceptos(modelo(grupos(primeros(&t.top_conceptos, tope(9)), |x| {
         format!("{} {}", x.veces, if x.veces == 1 { "vez" } else { "veces" })
     })));
     g.set_deudas(modelo(
@@ -314,6 +384,7 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
     g.set_mayores(modelo(
         t.mayores_gastos
             .iter()
+            .take(tope(11))
             .map(|x| Linea {
                 titulo: s(&x.gasto.concepto),
                 sub: s(&x.periodo),
@@ -325,13 +396,30 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
             .collect(),
     ));
     let neg = |m: &Monto| m.negativo;
+    let situacion: Vec<_> = vistas::meses_vista(&est.c, &hoy_iso())?
+        .into_iter()
+        .filter(|m| m.estado.periodo >= desde && m.estado.periodo <= hasta)
+        .collect();
+    let estados: Vec<_> = situacion.iter().map(|m| m.estado.clone()).collect();
+    let r = resumir_estados(&estados);
+    g.set_meses_cifras(cifras(vistas::cifras_meses(&r)));
+    let avance = vistas::avance_meses(&r).unwrap_or_default().round();
+    g.set_meses_avance(avance.to_f32().unwrap_or(0.0));
+    g.set_meses_avance_texto(s(format!(
+        "{avance} % de los meses con gastos del periodo está completo."
+    )));
     g.set_tabla(modelo(
         t.meses
             .iter()
             .map(|m| {
-                fila_tabla(
+                let sit = situacion
+                    .iter()
+                    .find(|x| x.nombre == m.nombre)
+                    .map_or(SituacionMes::SinGastos, |x| x.estado.situacion);
+                let mut fila = fila_tabla(
                     vec![
                         m.nombre.clone(),
+                        String::new(),
                         m.ingreso.texto.clone(),
                         m.gasto.texto.clone(),
                         m.pagado.texto.clone(),
@@ -344,6 +432,7 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
                     ],
                     vec![
                         false,
+                        false,
                         neg(&m.ingreso),
                         neg(&m.gasto),
                         false,
@@ -351,7 +440,10 @@ pub fn cargar(ui: &Ventana, est: &mut Estado) -> Result<(), String> {
                         neg(&m.acumulado),
                         false,
                     ],
-                )
+                );
+                fila.estado = s(vistas::texto_situacion(sit));
+                fila.tipo = tipo_situacion(sit);
+                fila
             })
             .collect(),
     ));

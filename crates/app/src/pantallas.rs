@@ -1,15 +1,19 @@
 //! Carga de datos de cada pantalla (salvo el tablero) en los globals de la interfaz.
 
-use crate::comun::{cifra, fila, gastos_paginados, modelo, pagina_vacia, paginar_local, s, textos};
-use crate::estado::Estado;
+use crate::comun::{
+    cifra, cifras, fila, gastos_paginados, modelo, pagina_vacia, paginar_local, s, textos,
+    tipo_situacion,
+};
+use crate::estado::{clave, hoy_iso, Estado};
 use crate::vistas::{self, Filtro};
 use crate::{
-    App, CatsD, DatosD, DeudaFila, DeudasD, FilaTabla, ItemFila, Linea, LineaLog, MovsD, ResumenD,
-    TarjetaFila, TarjetasD, Ventana,
+    App, CatsD, DatosD, DeudaFila, DeudasD, FilaMes, FilaTabla, ItemFila, Linea, LineaLog, MesesD,
+    MovsD, ResumenD, TarjetaFila, TarjetasD, Ventana,
 };
 use rust_decimal::prelude::ToPrimitive;
 use slint::ComponentHandle;
 use sueldapp_almacen::repo::{self, Catalogo};
+use sueldapp_dominio::calculos::{resumir_estados, SituacionMes};
 use sueldapp_dominio::NOMBRES_MES;
 
 type R = Result<(), String>;
@@ -26,6 +30,7 @@ fn fila_tabla(c: Vec<String>, neg: Vec<bool>) -> FilaTabla {
     FilaTabla {
         c: textos(c),
         negativos: modelo(neg),
+        ..Default::default()
     }
 }
 
@@ -61,31 +66,43 @@ pub fn resumen(ui: &Ventana, est: &mut Estado) -> R {
             .meses
             .iter()
             .map(|m| {
-                fila_tabla(
+                let mut f = fila_tabla(
                     vec![
                         if m.existe {
                             m.nombre.clone()
                         } else {
                             format!("{} (sin datos)", m.nombre)
                         },
+                        String::new(),
                         m.totales.ingreso.texto.clone(),
                         m.totales.total.texto.clone(),
                         m.totales.pagado.texto.clone(),
                         m.totales.restante.texto.clone(),
                     ],
-                    vec![false, false, false, false, m.totales.restante.negativo],
-                )
+                    vec![
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        m.totales.restante.negativo,
+                    ],
+                );
+                f.estado = s(vistas::texto_situacion(m.situacion));
+                f.tipo = tipo_situacion(m.situacion);
+                f
             })
             .collect();
         filas.push(fila_tabla(
             vec![
                 "Total".into(),
+                String::new(),
                 t.ingreso.texto.clone(),
                 t.total.texto.clone(),
                 t.pagado.texto.clone(),
                 t.restante.texto.clone(),
             ],
-            vec![false, false, false, false, t.restante.negativo],
+            vec![false, false, false, false, false, t.restante.negativo],
         ));
         g.set_anio(modelo(filas));
         return Ok(());
@@ -94,7 +111,9 @@ pub fn resumen(ui: &Ventana, est: &mut Estado) -> R {
     let t = &r.totales;
     g.set_periodo(s(&r.nombre));
     g.set_existe(r.mes.is_some());
-    g.set_cerrado(r.mes.as_ref().is_some_and(|m| m.cerrado));
+    g.set_situacion(s(vistas::texto_situacion(r.situacion)));
+    g.set_situacion_tipo(tipo_situacion(r.situacion));
+    g.set_por_confirmar(r.situacion == SituacionMes::PorConfirmar);
     g.set_hero_etiqueta(s("TE QUEDA ESTE MES"));
     g.set_hero_valor(s(&t.restante.texto));
     g.set_hero_negativo(t.restante.negativo);
@@ -275,6 +294,46 @@ pub fn movimientos(ui: &Ventana, est: &mut Estado) -> R {
     g.set_suma(s(&r.total.texto));
     g.set_filas(modelo(filas));
     g.set_pagina(pag);
+    Ok(())
+}
+
+// ---------- Meses ----------
+
+pub fn meses(ui: &Ventana, est: &mut Estado) -> R {
+    let g = ui.global::<MesesD>();
+    let lista = vistas::meses_vista(&est.c, &hoy_iso())?;
+    let estados: Vec<_> = lista.iter().map(|m| m.estado.clone()).collect();
+    let r = resumir_estados(&estados);
+    g.set_cifras(cifras(vistas::cifras_meses(&r)));
+    let avance = vistas::avance_meses(&r).unwrap_or_default().round();
+    g.set_avance(f32_de(avance));
+    g.set_avance_texto(s(format!(
+        "{avance} % de los meses con gastos está completo."
+    )));
+
+    let filas = |que: fn(SituacionMes) -> bool| -> Vec<FilaMes> {
+        lista
+            .iter()
+            .filter(|m| que(m.estado.situacion))
+            .map(|m| FilaMes {
+                clave: clave(m.estado.periodo),
+                nombre: s(&m.nombre),
+                situacion: s(vistas::texto_situacion(m.estado.situacion)),
+                tipo: tipo_situacion(m.estado.situacion),
+                pagado: s(format!("Pagado: {} de {}", m.pagado.texto, m.total.texto)),
+                por_pagar: s(&m.por_pagar.texto),
+                avance: m.avance.map(f32_de).unwrap_or(0.0),
+                atrasado: m.estado.pagos_atrasados > 0,
+                por_confirmar: m.estado.situacion == SituacionMes::PorConfirmar,
+            })
+            .collect()
+    };
+    g.set_por_confirmar(modelo(filas(|x| x == SituacionMes::PorConfirmar)));
+    g.set_pendientes(modelo(filas(|x| matches!(x, SituacionMes::Pendientes(_)))));
+    // Lo más reciente primero: lo hecho hace tiempo se consulta menos.
+    let mut hechos = filas(|x| x == SituacionMes::Hecho);
+    hechos.reverse();
+    g.set_hechos(modelo(hechos));
     Ok(())
 }
 

@@ -1,13 +1,14 @@
 //! Vistas: datos ya calculados y formateados que muestra la interfaz. Todo el dinero sale del
 //! núcleo como `Monto {valor, texto}`: la interfaz nunca calcula ni formatea dinero.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use sueldapp_almacen::repo::{self, Catalogo, MesCompleto};
 use sueldapp_almacen::Connection;
 use sueldapp_dominio::calculos::{
-    saldo_deuda, saldo_tarjeta, sumar, totales_mes, Cuota, TotalesMes,
+    estado_espera_pago, estado_mes, saldo_deuda, saldo_tarjeta, situacion_mes, sumar, totales_mes,
+    Cuota, EstadoMes, ResumenEstados, SituacionMes, TotalesMes,
 };
-use sueldapp_dominio::formato::{formatear, leer_monto};
+use sueldapp_dominio::formato::{dias_entre, formatear, leer_monto};
 use sueldapp_dominio::paginacion::{paginar, Direccion};
 use sueldapp_dominio::texto::contiene;
 use sueldapp_dominio::{
@@ -106,6 +107,19 @@ impl Contexto {
             .any(|x| x.id == Some(estado_id) && x.cuenta_pagado)
     }
 
+    fn espera_pago(&self, estado_id: i64) -> bool {
+        self.estados
+            .iter()
+            .find(|x| x.id == Some(estado_id))
+            .is_none_or(|x| estado_espera_pago(&x.nombre, x.cuenta_pagado))
+    }
+
+    fn situacion(&self, mes: Option<&Mes>, gastos: &[Gasto]) -> SituacionMes {
+        situacion_mes(mes.is_some_and(|m| m.cerrado), gastos, |x| {
+            self.espera_pago(x)
+        })
+    }
+
     fn periodo(&self, mes_id: i64) -> Periodo {
         self.periodos.get(&mes_id).copied().unwrap_or((0, 1))
     }
@@ -195,7 +209,235 @@ pub fn catalogos(c: &Connection) -> R<Catalogos> {
 // ---------- Meses y resúmenes ----------
 
 pub fn guardar_mes(c: &Connection, mes: Mes) -> R<Mes> {
+    if let (true, Some(id)) = (mes.cerrado, mes.id) {
+        let ctx = Contexto::cargar(c)?;
+        let gastos = repo::gastos_de_mes(c, id).map_err(e)?;
+        if let SituacionMes::Pendientes(n) = ctx.situacion(Some(&mes), &gastos) {
+            return Err(format!(
+                "No puedes marcar {} como hecho: {}.",
+                nombre_periodo((mes.anio, mes.mes)),
+                texto_pendientes(n)
+            ));
+        }
+    }
     repo::guardar_mes(c, &mes).map_err(e)
+}
+
+fn texto_pendientes(n: usize) -> String {
+    if n == 1 {
+        "falta 1 pago".into()
+    } else {
+        format!("faltan {n} pagos")
+    }
+}
+
+/// Texto corto de la situación de un mes; vacío si no tiene gastos.
+pub fn texto_situacion(s: SituacionMes) -> String {
+    match s {
+        SituacionMes::SinGastos => String::new(),
+        SituacionMes::Pendientes(n) => {
+            let t = texto_pendientes(n);
+            t[..1].to_uppercase() + &t[1..]
+        }
+        SituacionMes::PorConfirmar => "Todo pagado".into(),
+        SituacionMes::Hecho => "Hecho".into(),
+    }
+}
+
+pub struct AlertaPago {
+    pub gasto: GastoVista,
+    /// Días hasta la fecha de pago; negativo si ya venció.
+    pub dias: i64,
+}
+
+/// Pagos pendientes que vencen en `dias` o menos y, si se piden, los vencidos; primero los urgentes.
+pub fn alertas_pago(c: &Connection, hoy: &str, dias: i64, vencidos: bool) -> R<Vec<AlertaPago>> {
+    let tope = dias;
+    let ctx = Contexto::cargar(c)?;
+    let mut v: Vec<AlertaPago> = repo::todos_gastos(c)
+        .map_err(e)?
+        .into_iter()
+        .filter(|g| !g.fuera_de_bloque && ctx.espera_pago(g.estado_id))
+        .filter_map(|g| {
+            let dias = dias_entre(hoy, g.fecha_pago.as_deref()?)?;
+            (dias <= tope && (vencidos || dias >= 0)).then(|| AlertaPago {
+                gasto: ctx.gasto(g),
+                dias,
+            })
+        })
+        .collect();
+    v.sort_by_key(|a| a.dias);
+    Ok(v)
+}
+
+pub fn texto_alerta(dias: i64) -> String {
+    match dias {
+        2.. => format!("Vence en {dias} días"),
+        1 => "Vence mañana".into(),
+        0 => "Vence hoy".into(),
+        -1 => "Venció ayer".into(),
+        _ => format!("Venció hace {} días", -dias),
+    }
+}
+
+/// Resumen corto: "1 vencido, 2 próximos".
+pub fn texto_alertas(alertas: &[AlertaPago]) -> String {
+    let vencidos = alertas.iter().filter(|a| a.dias < 0).count();
+    let proximos = alertas.len() - vencidos;
+    let mut partes = Vec::new();
+    match vencidos {
+        0 => {}
+        1 => partes.push("1 pago vencido".to_string()),
+        n => partes.push(format!("{n} pagos vencidos")),
+    }
+    match proximos {
+        0 => {}
+        1 => partes.push("1 pago próximo".to_string()),
+        n => partes.push(format!("{n} pagos próximos")),
+    }
+    partes.join(", ")
+}
+
+pub struct MesVista {
+    pub estado: EstadoMes,
+    pub nombre: String,
+    pub total: Monto,
+    pub pagado: Monto,
+    pub por_pagar: Monto,
+    /// Porcentaje pagado de los gastos del mes, si tiene.
+    pub avance: Option<Decimal>,
+}
+
+/// Situación de todos los meses, en orden. `hoy` en `AAAA-MM-DD`.
+pub fn meses_vista(c: &Connection, hoy: &str) -> R<Vec<MesVista>> {
+    let ctx = Contexto::cargar(c)?;
+    let gastos = repo::todos_gastos(c).map_err(e)?;
+    repo::listar_meses(c)
+        .map_err(e)?
+        .into_iter()
+        .map(|m| {
+            let id = m.id.unwrap_or_default();
+            let del_mes: Vec<Gasto> = gastos.iter().filter(|g| g.mes_id == id).cloned().collect();
+            let periodo = (m.anio, m.mes);
+            let estado = estado_mes(periodo, m.cerrado, &del_mes, |x| ctx.espera_pago(x), hoy);
+            let t = totales_mes(&del_mes, &[], |x| ctx.pagado(x));
+            Ok(MesVista {
+                nombre: nombre_periodo(periodo),
+                total: monto(t.total),
+                pagado: monto(t.pagado),
+                por_pagar: monto(estado.por_pagar),
+                avance: sueldapp_dominio::estadisticas::porcentaje(t.pagado, t.total),
+                estado,
+            })
+        })
+        .collect()
+}
+
+/// Cifras de la situación de unos meses, para el módulo Meses y el Tablero.
+pub fn cifras_meses(r: &ResumenEstados) -> Vec<(String, String, String, bool)> {
+    let completos = r.hechos + r.por_confirmar;
+    let dinero = |d| formatear(d);
+    vec![
+        (
+            "Meses completos".into(),
+            format!("{completos} de {}", r.con_gastos),
+            format!("{} hechos", r.hechos),
+            false,
+        ),
+        (
+            "Por confirmar".into(),
+            r.por_confirmar.to_string(),
+            "Todo pagado, falta marcarlos".into(),
+            false,
+        ),
+        (
+            "Con pagos pendientes".into(),
+            r.pendientes.to_string(),
+            r.pendiente_mas_antiguo
+                .map(|p| format!("El más antiguo: {}", nombre_periodo(p)))
+                .unwrap_or_default(),
+            false,
+        ),
+        (
+            "Meses atrasados".into(),
+            r.atrasados.to_string(),
+            "Ya pasaron y deben pagos".into(),
+            r.atrasados > 0,
+        ),
+        (
+            "Pagos pendientes".into(),
+            r.pagos_pendientes.to_string(),
+            format!("{} atrasados", r.pagos_atrasados),
+            false,
+        ),
+        (
+            "Falta por pagar".into(),
+            dinero(r.por_pagar),
+            "Sin contar No ni Aplazado".into(),
+            false,
+        ),
+        (
+            "Atrasado por pagar".into(),
+            dinero(r.por_pagar_atrasado),
+            String::new(),
+            r.por_pagar_atrasado > Decimal::ZERO,
+        ),
+    ]
+}
+
+/// Porcentaje de meses completos; `None` si ningún mes tiene gastos.
+pub fn avance_meses(r: &ResumenEstados) -> Option<Decimal> {
+    sueldapp_dominio::estadisticas::porcentaje(
+        Decimal::from(r.hechos + r.por_confirmar),
+        Decimal::from(r.con_gastos),
+    )
+}
+
+pub struct MesesSincronizados {
+    /// Meses que estaban hechos y volvieron a tener pagos pendientes.
+    pub reabiertos: Vec<String>,
+    /// Ids de los meses con gastos y sin pagos pendientes, confirmados o no.
+    pub completos: HashSet<i64>,
+    /// Los de `completos` aún sin confirmar.
+    pub por_confirmar: Vec<Mes>,
+}
+
+/// Un mes hecho no puede tener pagos pendientes: si vuelve a tenerlos, deja de estar hecho.
+pub fn sincronizar_meses(c: &Connection) -> R<MesesSincronizados> {
+    let ctx = Contexto::cargar(c)?;
+    let gastos = repo::todos_gastos(c).map_err(e)?;
+    let mut r = MesesSincronizados {
+        reabiertos: Vec::new(),
+        completos: HashSet::new(),
+        por_confirmar: Vec::new(),
+    };
+    for mut m in repo::listar_meses(c).map_err(e)? {
+        let id = m.id.unwrap_or_default();
+        let del_mes: Vec<Gasto> = gastos.iter().filter(|g| g.mes_id == id).cloned().collect();
+        match ctx.situacion(Some(&m), &del_mes) {
+            SituacionMes::Pendientes(_) if m.cerrado => {
+                m.cerrado = false;
+                repo::guardar_mes(c, &m).map_err(e)?;
+                r.reabiertos.push(nombre_periodo((m.anio, m.mes)));
+            }
+            SituacionMes::PorConfirmar => {
+                r.completos.insert(id);
+                r.por_confirmar.push(m);
+            }
+            SituacionMes::Hecho if !del_mes.is_empty() => {
+                r.completos.insert(id);
+            }
+            _ => {}
+        }
+    }
+    Ok(r)
+}
+
+/// Marca o desmarca un mes como hecho.
+pub fn marcar_mes(c: &Connection, id: i64, hecho: bool) -> R<Mes> {
+    let mut m = repo::mes(c, id).map_err(e)?;
+    m.cerrado = hecho;
+    guardar_mes(c, m)
 }
 
 pub fn borrar_mes(c: &Connection, id: i64) -> R<MesCompleto> {
@@ -207,6 +449,7 @@ pub fn restaurar_mes(c: &Connection, mes: MesCompleto) -> R<()> {
 }
 
 pub struct ResumenMes {
+    pub situacion: SituacionMes,
     pub mes: Option<Mes>,
     pub nombre: String,
     pub totales: Totales,
@@ -232,6 +475,7 @@ pub fn resumen_mes(c: &Connection, anio: i32, mes: u32) -> R<ResumenMes> {
         .map(|g| ctx.gasto(g))
         .collect();
     Ok(ResumenMes {
+        situacion: ctx.situacion(m.as_ref(), &gastos),
         nombre: nombre_periodo((anio, mes)),
         mes: m,
         totales: totales(&t),
@@ -243,6 +487,7 @@ pub fn resumen_mes(c: &Connection, anio: i32, mes: u32) -> R<ResumenMes> {
 pub struct MesDelAnio {
     pub nombre: String,
     pub existe: bool,
+    pub situacion: SituacionMes,
     pub totales: Totales,
 }
 
@@ -258,17 +503,22 @@ pub fn resumen_anio(c: &Connection, anio: i32) -> R<ResumenAnio> {
     let mut todos = Vec::new();
     for mes in 1..=12 {
         let m = meses.iter().find(|m| m.anio == anio && m.mes == mes);
-        let t = match m.and_then(|m| m.id) {
-            Some(id) => totales_mes(
-                &repo::gastos_de_mes(c, id).map_err(e)?,
-                &repo::ingresos_de_mes(c, id).map_err(e)?,
-                |x| ctx.pagado(x),
-            ),
-            None => TotalesMes::default(),
+        let (t, situacion) = match m.and_then(|m| m.id) {
+            Some(id) => {
+                let gastos = repo::gastos_de_mes(c, id).map_err(e)?;
+                (
+                    totales_mes(&gastos, &repo::ingresos_de_mes(c, id).map_err(e)?, |x| {
+                        ctx.pagado(x)
+                    }),
+                    ctx.situacion(m, &gastos),
+                )
+            }
+            None => (TotalesMes::default(), SituacionMes::SinGastos),
         };
         lista.push(MesDelAnio {
             nombre: NOMBRES_MES[mes as usize - 1].to_string(),
             existe: m.is_some(),
+            situacion,
             totales: totales(&t),
         });
         todos.push(t);
@@ -401,6 +651,8 @@ pub struct GastoEntrada {
     pub tarjeta_id: Option<i64>,
     pub nota: String,
     pub fuera_de_bloque: bool,
+    /// Tal como la escribió el usuario (`día/mes/año`); vacío si no hay.
+    pub fecha_pago: String,
 }
 
 /// Id del mes; lo crea si no existe.
@@ -444,6 +696,7 @@ pub fn guardar_gasto(c: &Connection, gasto: GastoEntrada) -> R<GastoVista> {
         fuera_de_bloque: gasto.fuera_de_bloque,
         orden: previo.as_ref().map(|p| p.orden).unwrap_or(i64::MAX / 2),
         origen: previo.and_then(|p| p.origen),
+        fecha_pago: sueldapp_dominio::formato::leer_fecha(&gasto.fecha_pago).map_err(e)?,
     };
     let g = repo::guardar_gasto(c, &g).map_err(e)?;
     Ok(Contexto::cargar(c)?.gasto(g))
@@ -999,9 +1252,152 @@ mod tests {
                 tarjeta_id: None,
                 nota: String::new(),
                 fuera_de_bloque: false,
+                fecha_pago: String::new(),
             },
         )
         .unwrap()
+    }
+
+    #[test]
+    fn meses_y_sus_cifras() {
+        let c = abrir_memoria().unwrap();
+        let pagado = repo::listar_estados(&c)
+            .unwrap()
+            .into_iter()
+            .find(|x| x.cuenta_pagado)
+            .and_then(|x| x.id)
+            .unwrap();
+        let mut g = gasto(&c, "Pagado", "100", 9, None).gasto;
+        g.estado_id = pagado;
+        repo::guardar_gasto(&c, &g).unwrap();
+        let mut g = gasto(&c, "Pendiente", "40", 10, None).gasto;
+        g.estado_id = repo::id_estado(&c, "Pendiente").unwrap();
+        repo::guardar_gasto(&c, &g).unwrap();
+
+        let v = meses_vista(&c, "2026-11-02").unwrap();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0].estado.situacion, SituacionMes::PorConfirmar);
+        assert_eq!(v[1].estado.situacion, SituacionMes::Pendientes(1));
+        assert_eq!(v[1].por_pagar.texto, "$ 40,00");
+        assert_eq!(v[1].estado.pagos_atrasados, 1);
+
+        let estados: Vec<_> = v.into_iter().map(|m| m.estado).collect();
+        let r = sueldapp_dominio::calculos::resumir_estados(&estados);
+        assert_eq!(avance_meses(&r).map(|d| d.round()), Some(Decimal::from(50)));
+        let cifras = cifras_meses(&r);
+        assert_eq!(cifras[0].1, "1 de 2");
+        assert_eq!(cifras[3].1, "1");
+        assert!(cifras[3].3);
+        assert_eq!(cifras[6].1, "$ 40,00");
+    }
+
+    #[test]
+    fn alertas_de_pagos_cercanos() {
+        let c = abrir_memoria().unwrap();
+        let estado = |nombre: &str| {
+            repo::listar_estados(&c)
+                .unwrap()
+                .into_iter()
+                .find(|x| x.nombre == nombre)
+                .and_then(|x| x.id)
+                .unwrap()
+        };
+        let con = |concepto: &str, fecha: Option<&str>, est: &str, fuera: bool| {
+            let mut g = gasto(&c, concepto, "100", 11, None).gasto;
+            g.fecha_pago = fecha.map(String::from);
+            g.estado_id = estado(est);
+            g.fuera_de_bloque = fuera;
+            repo::guardar_gasto(&c, &g).unwrap();
+        };
+        con("Vencido", Some("2026-11-22"), "Pendiente", false);
+        con("Hoy", Some("2026-11-23"), "Pendiente", false);
+        con("Limite", Some("2026-11-30"), "Sin estado", false);
+        con("Lejos", Some("2026-12-01"), "Pendiente", false);
+        con("Sin fecha", None, "Pendiente", false);
+        con("Ya pagado", Some("2026-11-23"), "Pagado", false);
+        con("Decidido", Some("2026-11-23"), "No", false);
+        con("Aplazado", Some("2026-11-23"), "Aplazado", false);
+        con("Sin contar", Some("2026-11-23"), "Pendiente", true);
+
+        let a = alertas_pago(&c, "2026-11-23", 7, true).unwrap();
+        let v: Vec<_> = a
+            .iter()
+            .map(|x| (x.gasto.gasto.concepto.as_str(), x.dias))
+            .collect();
+        assert_eq!(v, [("Vencido", -1), ("Hoy", 0), ("Limite", 7)]);
+        assert_eq!(texto_alertas(&a), "1 pago vencido, 2 pagos próximos");
+        assert!(alertas_pago(&c, "2026-11-01", 7, true).unwrap().is_empty());
+        // Configurable: anticipación y vencidos.
+        let n = |d, v| alertas_pago(&c, "2026-11-23", d, v).unwrap().len();
+        assert_eq!(n(1, true), 2);
+        assert_eq!(n(8, true), 4);
+        assert_eq!(n(7, false), 2);
+        assert_eq!(n(1, false), 1);
+        assert_eq!(texto_alertas(&[]), "");
+        assert_eq!(texto_alerta(2), "Vence en 2 días");
+        assert_eq!(texto_alerta(1), "Vence mañana");
+        assert_eq!(texto_alerta(0), "Vence hoy");
+        assert_eq!(texto_alerta(-1), "Venció ayer");
+        assert_eq!(texto_alerta(-3), "Venció hace 3 días");
+    }
+
+    #[test]
+    fn un_mes_solo_queda_hecho_con_todo_pagado() {
+        let c = abrir_memoria().unwrap();
+        let estado = |nombre: &str| {
+            repo::listar_estados(&c)
+                .unwrap()
+                .into_iter()
+                .find(|x| x.nombre == nombre)
+                .and_then(|x| x.id)
+                .unwrap()
+        };
+        let mut g = gasto(&c, "Cuota", "100", 10, None).gasto;
+        g.estado_id = estado("Pendiente");
+        repo::guardar_gasto(&c, &g).unwrap();
+        let id = g.mes_id;
+
+        // Con un pago pendiente no se puede marcar y no pide confirmación.
+        let err = marcar_mes(&c, id, true).unwrap_err();
+        assert!(err.contains("falta 1 pago"), "{err}");
+        assert!(sincronizar_meses(&c).unwrap().por_confirmar.is_empty());
+
+        // Pagado: queda por confirmar, sin marcarse solo.
+        g.estado_id = estado("Pagado");
+        repo::guardar_gasto(&c, &g).unwrap();
+        let s = sincronizar_meses(&c).unwrap();
+        assert_eq!(s.por_confirmar.len(), 1);
+        assert!(s.completos.contains(&id));
+        assert!(!repo::mes(&c, id).unwrap().cerrado);
+
+        // Confirmado, sigue completo y ya no hay nada por confirmar.
+        marcar_mes(&c, id, true).unwrap();
+        let s = sincronizar_meses(&c).unwrap();
+        assert!(s.por_confirmar.is_empty());
+        assert!(s.completos.contains(&id));
+        assert_eq!(
+            resumen_mes(&c, 2026, 10).unwrap().situacion,
+            SituacionMes::Hecho
+        );
+
+        // Un pago pendiente nuevo lo reabre, una sola vez.
+        gasto(&c, "Otra", "5", 10, None);
+        let mut otro = repo::gastos_de_mes(&c, id).unwrap().pop().unwrap();
+        otro.estado_id = estado("Pendiente");
+        repo::guardar_gasto(&c, &otro).unwrap();
+        let s = sincronizar_meses(&c).unwrap();
+        assert_eq!(s.reabiertos.len(), 1);
+        assert!(!s.completos.contains(&id));
+        assert!(!repo::mes(&c, id).unwrap().cerrado);
+        assert!(sincronizar_meses(&c).unwrap().reabiertos.is_empty());
+
+        // "No" y "Aplazado" no bloquean; el año muestra la misma situación.
+        otro.estado_id = estado("Aplazado");
+        repo::guardar_gasto(&c, &otro).unwrap();
+        marcar_mes(&c, id, true).unwrap();
+        let anio = resumen_anio(&c, 2026).unwrap();
+        assert_eq!(anio.meses[9].situacion, SituacionMes::Hecho);
+        assert_eq!(anio.meses[0].situacion, SituacionMes::SinGastos);
     }
 
     #[test]
@@ -1039,6 +1435,7 @@ mod tests {
                 tarjeta_id: None,
                 nota: String::new(),
                 fuera_de_bloque: false,
+                fecha_pago: String::new(),
             },
         );
         assert!(mal.is_err());

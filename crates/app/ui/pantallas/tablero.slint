@@ -1,6 +1,6 @@
 import { Tema } from "../tema.slint";
-import { TableroD, App, Linea } from "../estado.slint";
-import { Vidrio, Boton, Icono, Iconos, Etiqueta, Ayuda, Titulo, Progreso, Separador } from "../componentes.slint";
+import { TableroD, App, Linea, ModuloV } from "../estado.slint";
+import { Vidrio, Boton, Icono, Iconos, Etiqueta, Ayuda, Titulo, Progreso, Separador, Campo, Selector } from "../componentes.slint";
 import { Grafico, BarrasH } from "../graficos.slint";
 import { Encabezado, Desplazable, Panel, Cifras, Heroe, TablaTexto } from "comun.slint";
 
@@ -248,13 +248,436 @@ export component ListaLineas inherits VerticalLayout {
     }
 }
 
-export component PantallaTablero inherits VerticalLayout {
+component ContenidoModulo inherits VerticalLayout {
+    in property <ModuloV> m;
     property <bool> tabla-abierta: false;
+    property <length> alto: root.m.alto * 1px;
+    if root.m.tipo == 0: Heroe {
+        vertical-stretch: 1;
+        etiqueta: TableroD.hero-etiqueta;
+        valor: TableroD.hero-valor;
+        negativo: TableroD.hero-negativo;
+        nota: TableroD.hero-nota;
+        cifras: TableroD.cifras;
+    }
+    if root.m.tipo == 1: Panel {
+        vertical-stretch: 1;
+        Titulo {
+            text: root.m.titulo;
+        }
+        Cifras {
+            columnas: root.m.columnas;
+            cifras: TableroD.kpis;
+        }
+    }
+    if root.m.tipo == 2: Panel {
+        vertical-stretch: 1;
+        HorizontalLayout {
+            Titulo {
+                text: root.m.titulo;
+                horizontal-stretch: 1;
+            }
+            Boton {
+                texto: "Ver meses";
+                clicked => {
+                    App.navegar(8);
+                }
+            }
+        }
+        Progreso {
+            valor: TableroD.meses-avance;
+        }
+        Ayuda {
+            text: TableroD.meses-avance-texto;
+        }
+        Cifras {
+            columnas: root.m.columnas;
+            cifras: TableroD.meses-cifras;
+        }
+    }
+    if root.m.tipo == 3: Panel {
+        vertical-stretch: 1;
+        HorizontalLayout {
+            Titulo {
+                text: root.m.titulo;
+                horizontal-stretch: 1;
+            }
+            HorizontalLayout {
+                spacing: 16px;
+                horizontal-stretch: 0;
+                Leyenda {
+                    color: Tema.serie-1;
+                    texto: "Ingresos";
+                }
+                Leyenda {
+                    color: Tema.serie-2;
+                    texto: "Gastos";
+                }
+            }
+        }
+        Grafico {
+            height: root.alto;
+            tipo: 0;
+            ejes: TableroD.ejes-ig;
+            barras: TableroD.ig;
+            descripcion: "Ingresos y gastos por mes. Los valores están en la tabla de datos.";
+        }
+    }
+    if root.m.tipo == 4: Panel {
+        vertical-stretch: 1;
+        HorizontalLayout {
+            Titulo {
+                text: root.m.titulo;
+                horizontal-stretch: 1;
+            }
+            HorizontalLayout {
+                spacing: 16px;
+                horizontal-stretch: 0;
+                Leyenda {
+                    color: Tema.serie-1;
+                    texto: "Sobra";
+                }
+                Leyenda {
+                    color: Tema.polo-neg;
+                    texto: "Falta";
+                }
+            }
+        }
+        Grafico {
+            height: root.alto;
+            tipo: 1;
+            ejes: TableroD.ejes-bal;
+            barras: TableroD.bal;
+            descripcion: "Lo que sobra o falta cada mes. Los valores están en la tabla de datos.";
+        }
+    }
+    if root.m.tipo == 5: Panel {
+        vertical-stretch: 1;
+        HorizontalLayout {
+            Titulo {
+                text: root.m.titulo;
+                horizontal-stretch: 1;
+            }
+            Ayuda {
+                text: "Suma de lo que sobra y falta, mes tras mes.";
+                horizontal-alignment: right;
+            }
+        }
+        Grafico {
+            height: root.alto;
+            tipo: 2;
+            ejes: TableroD.ejes-acu;
+            barras: TableroD.acu;
+            linea: TableroD.acu-linea;
+            area: TableroD.acu-area;
+            descripcion: "Saldo acumulado mes a mes. Los valores están en la tabla de datos.";
+        }
+    }
+    if root.m.tipo == 6 || root.m.tipo == 7 || root.m.tipo == 8 || root.m.tipo == 9 || root.m.tipo == 12: Panel {
+        vertical-stretch: 1;
+        Titulo {
+            text: root.m.titulo;
+        }
+        BarrasH {
+            lista: root.m.vista == 1;
+            grupos: root.m.tipo == 6 ? TableroD.destino : root.m.tipo == 7 ? TableroD.categoria : root.m.tipo == 8 ? TableroD.estado : root.m.tipo == 9 ? TableroD.conceptos : TableroD.fuentes;
+        }
+    }
+    if root.m.tipo == 10: Panel {
+        vertical-stretch: 1;
+        Titulo {
+            text: root.m.titulo;
+        }
+        ListaLineas {
+            lineas: TableroD.deudas;
+            vacio: "No tienes deudas pendientes.";
+        }
+    }
+    if root.m.tipo == 11: Panel {
+        vertical-stretch: 1;
+        Titulo {
+            text: root.m.titulo;
+        }
+        ListaLineas {
+            lineas: TableroD.mayores;
+        }
+    }
+    if root.m.tipo == 13: Panel {
+        vertical-stretch: 1;
+        Titulo {
+            text: root.m.titulo;
+        }
+        HorizontalLayout {
+            alignment: start;
+            Boton {
+                texto: root.tabla-abierta ? "Ocultar los datos de los gráficos" : "Ver los datos de los gráficos en tabla";
+                icono: Iconos.chevron;
+                clicked => {
+                    root.tabla-abierta = !root.tabla-abierta;
+                }
+            }
+        }
+        if root.tabla-abierta: TablaTexto {
+            con-estado: true;
+            encabezados: ["Mes", "Estado", "Ingresos", "Gastos", "Pagado", "Sobra / falta", "Acumulado", "Ahorro"];
+            filas: TableroD.tabla;
+        }
+    }
+}
+
+// Tirador de un borde: se ve como una pequeña píldora y se agarra en una zona más ancha.
+component Tirador inherits Rectangle {
+    in property <bool> vertical;
+    in property <bool> activo: true;
+    // Se guardan al mover: al soltar, `pressed` ya es falso.
+    out property <length> dx;
+    out property <length> dy;
+    out property <bool> pressed: ta.pressed;
+    callback soltado();
+    accessible-role: none;
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.vertical ? 6px : 54px;
+        height: root.vertical ? 54px : 6px;
+        border-radius: 3px;
+        background: ta.has-hover || ta.pressed ? Tema.acento : Tema.texto;
+    }
+    ta := TouchArea {
+        enabled: root.activo;
+        mouse-cursor: root.vertical ? ew-resize : ns-resize;
+        moved => {
+            root.dx = self.mouse-x - self.pressed-x;
+            root.dy = self.mouse-y - self.pressed-y;
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down {
+                root.dx = 0px;
+                root.dy = 0px;
+            } else if e.kind == PointerEventKind.up {
+                root.soltado();
+                root.dx = 0px;
+                root.dy = 0px;
+            }
+        }
+    }
+}
+
+// Controles de edición encima de un módulo: quitar, editar, arrastrar y cambiar de tamaño.
+component EdicionModulo inherits Rectangle {
+    in property <ModuloV> m;
+    in property <length> doceavo;
+    in property <length> separacion;
+    // Punto del arrastre dentro de este módulo.
+    property <length> px: TableroD.arr-x - self.absolute-position.x;
+    property <length> py: TableroD.arr-y - self.absolute-position.y;
+    property <bool> origen: TableroD.arr-tipo == root.m.tipo;
+    property <bool> encima: TableroD.arr-tipo >= 0 && !origen && px >= 0 && px < self.width && py >= 0 && py < self.height;
+    property <bool> antes: root.m.ancho == 12 ? py < self.height / 2 : px < self.width / 2;
+    property <int> ancho-pedido: pedir-ancho(root.m.ancho + round(asa-lado.dx / root.doceavo));
+    property <int> tam-pedido: min(2, max(0, root.m.tam + round(asa-pie.dy / 60px)));
+    pure function pedir-ancho(a: int) -> int {
+        return a <= 5 ? 4 : a <= 7 ? 6 : a <= 10 ? 8 : 12;
+    }
+    pure function texto-ancho(a: int) -> string {
+        return a == 4 ? "1/3" : a == 6 ? "1/2" : a == 8 ? "2/3" : "Completo";
+    }
+    changed encima => {
+        if encima {
+            TableroD.arr-destino = root.m.tipo;
+            TableroD.arr-antes = antes;
+        } else if TableroD.arr-destino == root.m.tipo {
+            TableroD.arr-destino = -1;
+        }
+    }
+    changed antes => {
+        if encima {
+            TableroD.arr-antes = antes;
+        }
+    }
+    border-radius: Tema.radio-l;
+    border-width: 2px;
+    border-color: encima ? Tema.acento : Tema.vidrio-borde;
+    background: origen ? Tema.fondo.transparentize(0.25) : transparent;
+    arrastre := TouchArea {
+        mouse-cursor: root.origen ? grabbing : grab;
+        moved => {
+            if self.pressed {
+                if !root.origen && abs(self.mouse-x - self.pressed-x) + abs(self.mouse-y - self.pressed-y) > 6px {
+                    TableroD.arr-titulo = root.m.titulo;
+                    TableroD.arr-destino = -1;
+                    TableroD.arr-tipo = root.m.tipo;
+                }
+                TableroD.arr-x = self.absolute-position.x + self.mouse-x;
+                TableroD.arr-y = self.absolute-position.y + self.mouse-y;
+            }
+        }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.up && root.origen {
+                TableroD.arr-tipo = -1;
+                if TableroD.arr-destino >= 0 {
+                    TableroD.mover-a(root.m.tipo, TableroD.arr-destino, TableroD.arr-antes);
+                }
+                TableroD.arr-destino = -1;
+            }
+        }
+    }
+    // Dónde caerá el módulo.
+    if root.encima: Rectangle {
+        x: root.m.ancho == 12 ? 0px : (root.antes ? -4px : root.width - 4px);
+        y: root.m.ancho == 12 ? (root.antes ? -4px : root.height - 4px) : 0px;
+        width: root.m.ancho == 12 ? root.width : 8px;
+        height: root.m.ancho == 12 ? 8px : root.height;
+        border-radius: 4px;
+        background: Tema.acento;
+    }
+    // Vista previa del tamaño mientras se arrastra un borde.
+    if asa-lado.pressed: Rectangle {
+        x: 0;
+        y: 0;
+        width: root.doceavo * root.ancho-pedido - root.separacion;
+        height: root.height;
+        border-radius: Tema.radio-l;
+        border-width: 3px;
+        border-color: Tema.acento;
+        background: Tema.acento-suave;
+        Text {
+            text: texto-ancho(root.ancho-pedido);
+            color: Tema.texto;
+            font-size: 22px;
+            font-weight: 700;
+        }
+    }
+    if asa-pie.pressed: Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height - 16px;
+        width: 150px;
+        height: 36px;
+        border-radius: 18px;
+        background: Tema.acento;
+        Text {
+            text: root.m.tams.length > tam-pedido ? root.m.tams[tam-pedido] : "";
+            color: Tema.acento-texto;
+            font-weight: 700;
+        }
+    }
+    if !root.origen: Boton {
+        width: self.preferred-width;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        texto: "Editar";
+        icono: Iconos.lapiz;
+        etiqueta-accesible: "Editar " + root.m.titulo;
+        clicked => {
+            TableroD.abrir-editor(root.m.tipo);
+        }
+    }
+    asa-lado := Tirador {
+        // La barra de desplazamiento ocupa el borde derecho y se quedaría con el puntero.
+        x: root.width - self.width - 16px;
+        y: (root.height - self.height) / 2;
+        width: 24px;
+        height: min(root.height, 90px);
+        vertical: true;
+        soltado => {
+            if root.ancho-pedido != root.m.ancho {
+                TableroD.cambiar-ancho(root.m.tipo, root.ancho-pedido == 4 ? 0 : root.ancho-pedido == 6 ? 1 : root.ancho-pedido == 8 ? 2 : 3);
+            }
+        }
+    }
+    asa-pie := Tirador {
+        visible: root.m.con-tam;
+        activo: root.m.con-tam;
+        x: (root.width - self.width) / 2;
+        y: root.height - self.height;
+        width: 110px;
+        height: 24px;
+        soltado => {
+            if root.m.con-tam && root.tam-pedido != root.m.tam {
+                TableroD.cambiar-tam(root.m.tipo, root.tam-pedido);
+            }
+        }
+    }
+    Boton {
+        x: 0px;
+        y: -12px;
+        width: 30px;
+        height: 30px;
+        solo-icono: true;
+        primario: true;
+        icono: Iconos.menos;
+        etiqueta-accesible: "Quitar " + root.m.titulo + " del tablero";
+        clicked => {
+            TableroD.ocultar(root.m.tipo, false);
+        }
+    }
+}
+
+component ModuloTablero inherits Rectangle {
+    in property <ModuloV> m;
+    in property <length> doceavo;
+    in property <length> separacion;
+    ContenidoModulo {
+        m: root.m;
+    }
+    if TableroD.editando: EdicionModulo {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        m: root.m;
+        doceavo: root.doceavo;
+        separacion: root.separacion;
+    }
+}
+
+export component PantallaTablero inherits VerticalLayout {
+    property <length> espacio: TableroD.espaciado == 0 ? 10px : TableroD.espaciado == 2 ? 28px : 18px;
+    property <length> doceavo: (root.width - 2px + root.espacio) / 12;
     spacing: 18px;
     Encabezado {
         titulo: "Tablero";
+        if TableroD.editando: Selector {
+            width: 140px;
+            height: 38px;
+            etiqueta: "Espacio entre módulos";
+            opciones: ["Compacto", "Normal", "Amplio"];
+            indice: TableroD.espaciado;
+            cambiado(i) => {
+                TableroD.cambiar-espaciado(i);
+            }
+        }
+        if TableroD.editando: Boton {
+            texto: "Restablecer";
+            clicked => {
+                TableroD.restablecer();
+            }
+        }
+        Boton {
+            texto: TableroD.editando ? "Listo" : "Personalizar";
+            icono: TableroD.editando ? Iconos.check : Iconos.lapiz;
+            primario: TableroD.editando;
+            clicked => {
+                TableroD.editando = !TableroD.editando;
+            }
+        }
     }
-    Desplazable {
+    // Mientras se arrastra cerca de un borde, la pantalla se desplaza sola.
+    Timer {
+        interval: 16ms;
+        running: TableroD.arr-tipo >= 0;
+        triggered => {
+            let arriba = TableroD.arr-y - desplazable.absolute-position.y;
+            let tope = min(0px, desplazable.visible-height - desplazable.content-height);
+            if arriba < 70px {
+                desplazable.content-y = min(0px, desplazable.content-y + 10px);
+            } else if arriba > desplazable.visible-height - 70px {
+                desplazable.content-y = max(tope, desplazable.content-y - 10px);
+            }
+        }
+    }
+    desplazable := Desplazable {
+        separacion: root.espacio;
         filtros := Vidrio {
             height: 72px;
             HorizontalLayout {
@@ -371,183 +794,32 @@ export component PantallaTablero inherits VerticalLayout {
             }
         }
 
-        if !TableroD.sin-meses: Heroe {
-            etiqueta: TableroD.hero-etiqueta;
-            valor: TableroD.hero-valor;
-            negativo: TableroD.hero-negativo;
-            nota: TableroD.hero-nota;
-            cifras: TableroD.cifras;
+        if TableroD.editando: Ayuda {
+            text: "Arrastra un módulo para cambiarlo de lugar y sus bordes para cambiar el tamaño. Pulsa − para quitarlo. Se guarda solo.";
+            horizontal-alignment: center;
         }
-        if !TableroD.sin-meses: Panel {
+        if !TableroD.sin-meses && TableroD.filas.length == 0: Panel {
             Titulo {
-                text: "Promedios y extremos";
+                text: "Todos los módulos están ocultos";
+                horizontal-alignment: center;
             }
-            Cifras {
-                columnas: 4;
-                cifras: TableroD.kpis;
-            }
-        }
-        if !TableroD.sin-meses: Panel {
-            HorizontalLayout {
-                Titulo {
-                    text: "Ingresos y gastos por mes";
-                    horizontal-stretch: 1;
-                }
-                HorizontalLayout {
-                    spacing: 16px;
-                    horizontal-stretch: 0;
-                    Leyenda {
-                        color: Tema.serie-1;
-                        texto: "Ingresos";
-                    }
-                    Leyenda {
-                        color: Tema.serie-2;
-                        texto: "Gastos";
-                    }
-                }
-            }
-            Grafico {
-                tipo: 0;
-                ejes: TableroD.ejes-ig;
-                barras: TableroD.ig;
-                descripcion: "Ingresos y gastos por mes. Los valores están en la tabla de datos.";
+            Ayuda {
+                text: "Pulsa Personalizar para mostrar los que quieras.";
+                horizontal-alignment: center;
             }
         }
-        if !TableroD.sin-meses: HorizontalLayout {
-            spacing: 18px;
-            Panel {
-                HorizontalLayout {
-                    Titulo {
-                        text: "Lo que sobra o falta cada mes";
-                        horizontal-stretch: 1;
-                    }
-                    HorizontalLayout {
-                        spacing: 16px;
-                        horizontal-stretch: 0;
-                        Leyenda {
-                            color: Tema.serie-1;
-                            texto: "Sobra";
-                        }
-                        Leyenda {
-                            color: Tema.polo-neg;
-                            texto: "Falta";
-                        }
-                    }
-                }
-                Grafico {
-                    tipo: 1;
-                    ejes: TableroD.ejes-bal;
-                    barras: TableroD.bal;
-                    descripcion: "Lo que sobra o falta cada mes. Los valores están en la tabla de datos.";
-                }
-            }
-            Panel {
-                HorizontalLayout {
-                    Titulo {
-                        text: "Saldo acumulado";
-                        horizontal-stretch: 1;
-                    }
-                    Ayuda {
-                        text: "Suma de lo que sobra y falta, mes tras mes.";
-                        horizontal-alignment: right;
-                    }
-                }
-                Grafico {
-                    tipo: 2;
-                    ejes: TableroD.ejes-acu;
-                    barras: TableroD.acu;
-                    linea: TableroD.acu-linea;
-                    area: TableroD.acu-area;
-                    descripcion: "Saldo acumulado mes a mes. Los valores están en la tabla de datos.";
-                }
-            }
-        }
-        if !TableroD.sin-meses: HorizontalLayout {
-            spacing: 18px;
-            Panel {
-                Titulo {
-                    text: "¿En qué se va el dinero?";
-                }
-                BarrasH {
-                    grupos: TableroD.destino;
-                }
-            }
-            Panel {
-                Titulo {
-                    text: "Gasto por categoría";
-                }
-                BarrasH {
-                    grupos: TableroD.categoria;
-                }
-            }
-            Panel {
-                Titulo {
-                    text: "Estado de los pagos";
-                }
-                BarrasH {
-                    grupos: TableroD.estado;
-                }
-            }
-        }
-        if !TableroD.sin-meses: HorizontalLayout {
-            spacing: 18px;
-            Panel {
-                horizontal-stretch: 13;
-                Titulo {
-                    text: "Conceptos con más gasto";
-                }
-                BarrasH {
-                    grupos: TableroD.conceptos;
-                }
-            }
-            Panel {
-                horizontal-stretch: 10;
-                Titulo {
-                    text: "Deudas pendientes";
-                }
-                ListaLineas {
-                    lineas: TableroD.deudas;
-                    vacio: "No tienes deudas pendientes.";
-                }
-            }
-        }
-        if !TableroD.sin-meses: HorizontalLayout {
-            spacing: 18px;
-            Panel {
-                horizontal-stretch: 13;
-                Titulo {
-                    text: "Gastos más grandes";
-                }
-                ListaLineas {
-                    lineas: TableroD.mayores;
-                }
-            }
-            Panel {
-                horizontal-stretch: 10;
-                Titulo {
-                    text: "Ingresos por fuente";
-                }
-                BarrasH {
-                    grupos: TableroD.fuentes;
-                }
-            }
-        }
-        if !TableroD.sin-meses: Panel {
-            HorizontalLayout {
+        if !TableroD.sin-meses: VerticalLayout {
+            spacing: root.espacio;
+            for f in TableroD.filas: HorizontalLayout {
+                spacing: root.espacio;
                 alignment: start;
-                Boton {
-                    texto: root.tabla-abierta ? "Ocultar los datos de los gráficos" : "Ver los datos de los gráficos en tabla";
-                    icono: Iconos.chevron;
-                    clicked => {
-                        root.tabla-abierta = !root.tabla-abierta;
-                    }
+                for m in f.modulos: ModuloTablero {
+                    width: root.doceavo * m.ancho - root.espacio;
+                    m: m;
+                    doceavo: root.doceavo;
+                    separacion: root.espacio;
                 }
-            }
-            if root.tabla-abierta: TablaTexto {
-                encabezados: ["Mes", "Ingresos", "Gastos", "Pagado", "Sobra / falta", "Acumulado", "Ahorro"];
-                filas: TableroD.tabla;
             }
         }
     }
 }
-

@@ -77,6 +77,7 @@ fn base_con_datos() -> sueldapp_almacen::Connection {
                 fuera_de_bloque: i == 2,
                 orden: i as i64,
                 origen: None,
+                fecha_pago: (i == 0).then(|| "2026-11-23".to_string()),
             },
         )
         .unwrap();
@@ -107,6 +108,10 @@ fn exportar_e_importar_conserva_todo() {
     let inf = importar_bytes(&mut nueva, "export.ods", bytes.get_ref(), false).unwrap();
     assert!(inf.ok, "{}", inf.resumen());
     assert!(inf.conciliacion.comparados > 0);
+    assert!(repo::todos_gastos(&nueva)
+        .unwrap()
+        .iter()
+        .any(|g| g.fecha_pago.as_deref() == Some("2026-11-23")));
     assert_eq!(
         repo::todos_gastos(&nueva).unwrap(),
         repo::todos_gastos(&original).unwrap()

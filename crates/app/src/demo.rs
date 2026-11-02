@@ -142,6 +142,7 @@ pub fn sembrar(c: &Connection) -> Resultado<()> {
         for (orden, (concepto, monto, estado_id, categoria_id, deuda_id, tarjeta_id)) in
             gastos.into_iter().enumerate()
         {
+            let periodo = repo::mes(c, m)?;
             repo::guardar_gasto(
                 c,
                 &Gasto {
@@ -158,6 +159,7 @@ pub fn sembrar(c: &Connection) -> Resultado<()> {
                     fuera_de_bloque: false,
                     orden: orden as i64,
                     origen: None,
+                    fecha_pago: deuda_id.map(|_| format!("{}-{:02}-23", periodo.anio, periodo.mes)),
                 },
             )?;
         }

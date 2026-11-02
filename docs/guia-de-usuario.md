@@ -7,7 +7,7 @@ app nunca se conecta a internet.
 
 ## 1. Primer uso: traer tu hoja
 
-1. Abre Sueldapp y ve a **Importar y exportar** (Alt + 7). Pulsa **Elegir archivo e importar**.
+1. Abre Sueldapp y ve a **Importar y exportar** (Alt + 8). Pulsa **Elegir archivo e importar**.
 2. Elige tu archivo `Ingreso-Egreso.ods`. La app solo lo lee; tu archivo no cambia.
 3. Lee el informe. Si dice **Importación correcta**, todos los totales coinciden con la hoja.
    Si hay diferencias, no se guarda nada y el informe muestra cuáles son.
@@ -34,6 +34,12 @@ Es lo primero que ves al abrir la app. Resume todo tu dinero en el periodo que e
 - **¿En qué se va el dinero?:** deudas, tarjetas y otros gastos; también por categoría, por estado,
   por concepto y los gastos más grandes.
 - **Ver los datos de los gráficos en tabla:** todas las cifras en una tabla.
+- **Personalizar:** edita el tablero directamente:
+  - Arrastra un módulo para cambiarlo de lugar; una línea muestra dónde caerá.
+  - Arrastra su borde derecho para cambiar el ancho y el inferior para cambiar el tamaño.
+  - Pulsa **−** para quitarlo y **Añadir módulo** para recuperarlo.
+  - **Editar** cambia título, ancho, tamaño, vista y lugar, también con teclado.
+  - Arriba eliges el espacio entre módulos o **Restablecer**. Todo se guarda solo.
 
 ![Tablero](capturas/tablero-claro.png)
 ![Gráficos del tablero](capturas/tablero-2-claro.png)
@@ -48,11 +54,30 @@ Muestra cuánto te queda este mes y qué falta por pagar.
 - **Ingresos, Gastos del mes, Ya pagado y Por pagar:** las cifras del mes.
 - **Próximos pagos:** los gastos que aún no has pagado. Pulsa **Marcar pagado** y listo. Si te
   equivocas, pulsa **Deshacer** en el aviso que aparece abajo a la derecha.
+- **Mes hecho:** cuando pagas lo último de un mes, la app pregunta si quieres marcarlo como hecho.
+  Si dices que no, el mes queda como **Todo pagado** con el botón **Marcar como hecho**. Con pagos
+  pendientes no se puede marcar, y si un mes hecho vuelve a tener uno, deja de estar hecho y te
+  avisa. Los gastos con estado **No** o **Aplazado** no cuentan como pendientes. Para corregir meses
+  anteriores, ve a ese mes (o búscalo en la vista **Año**, que muestra el estado de cada uno) y usa
+  **Editar mes**.
 - Con las flechas, o con **Alt + ←/→**, cambias de mes. **Año** muestra el resumen de todo el año.
 
 ![Resumen](capturas/resumen-claro.png)
 ![Resumen en modo oscuro](capturas/resumen-oscuro.png)
 ![Resumen del año](capturas/resumen-anio-claro.png)
+
+## 3.1. Meses
+
+Reúne todos tus meses con un distintivo de estado: los **Hecho** y **Todo pagado** llevan un visto
+verde, y los que tienen pagos pendientes, un reloj con cuántos faltan. Se agrupan en por confirmar,
+con pagos pendientes y hechos, cada uno con lo pagado y lo que falta. **Ver mes** lo abre en Resumen.
+
+- **Atrasado:** un mes ya pasado con pagos pendientes, salvo los que aún tienen fecha de pago futura.
+- **Falta por pagar:** no cuenta los gastos **No** ni **Aplazado**, por eso puede ser menor que el
+  **Por pagar** de Resumen.
+
+El **Tablero** muestra estas mismas cifras para el periodo elegido, en **Estado de los meses**, y su
+tabla mes a mes incluye el distintivo.
 
 ## 4. Movimientos
 
@@ -75,7 +100,14 @@ Cada deuda muestra cuánto has pagado, cuánto falta, el porcentaje, las cuotas 
 que terminas.
 
 - Para que una cuota sume al pagado, en el gasto elige **Cuota de la deuda**.
+- Para anotar cuándo se paga una cuota, escribe la **Fecha de pago** del gasto (día/mes/año, por
+  ejemplo 23/11/2026). Aparece junto a la cuota en la deuda. Crea cada cuota en su mes para
+  programar pagos futuros.
 - Si pagaste de más, la app lo muestra como "Pagado de más".
+- **Pagos cercanos:** los pagos pendientes con fecha de pago vencida o a 7 días o menos (se cambia en **Ajustes**) aparecen en
+  un botón del menú lateral, con un aviso al abrir la app y cuando aparece uno nuevo. Desde ahí
+  puedes marcarlos como pagados o editarlos. La app solo avisa mientras está abierta; los gastos con
+  estado **No** o **Aplazado** no generan alertas.
 - Marca **Deuda saldada** para pasarla a la lista de saldadas.
 
 ![Deudas](capturas/deudas-detalle-claro.png)
@@ -137,7 +169,7 @@ Si el aviso tiene **Deshacer**, tienes unos segundos para revertir el cambio. La
 - **Reducir transparencia:** cambia el vidrio por superficies sólidas.
 - **Reducir movimiento:** quita las animaciones. La app no lee este ajuste del sistema: actívalo aquí.
 - **Tema:** Sistema (sigue tu configuración), Claro u Oscuro.
-- Atajos: **Alt + 1…8** cambia de sección y **Escape** cierra un diálogo. Todo se puede usar con
+- Atajos: **Alt + 1…9** cambia de sección y **Escape** cierra un diálogo. Todo se puede usar con
   el teclado (Tab y Enter).
 
 ![Reducir transparencia](capturas/resumen-claro-solido.png)

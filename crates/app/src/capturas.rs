@@ -3,7 +3,7 @@
 //! así que no depende de herramientas del sistema. Al terminar cierra la app.
 
 use crate::acciones::{abrir_gasto, navegar, Est};
-use crate::{Form, Tema, Ventana};
+use crate::{App, Form, Tema, Ventana};
 use slint::{ComponentHandle, Timer};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -23,6 +23,16 @@ enum Paso {
     DeudaAbierta,
     ResumenAnio,
     Dialogo,
+    Alertas,
+    TableroEditable,
+    TableroEditor,
+    /// Pagar lo último de un mes: pregunta, botón de Resumen y reapertura.
+    Arrastre,
+    Soltar,
+    MesPregunta,
+    MesPorConfirmar,
+    MesHecho,
+    MesReabierto,
     Cerrar,
 }
 
@@ -42,6 +52,7 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
     let vistas = [
         (0, "tablero"),
         (1, "resumen"),
+        (8, "meses"),
         (2, "movimientos"),
         (3, "deudas"),
         (4, "tarjetas"),
@@ -67,9 +78,20 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
             Paso::DeudaAbierta,
             Paso::ResumenAnio,
             Paso::Dialogo,
+            Paso::Alertas,
+            Paso::TableroEditable,
+            Paso::TableroEditor,
         ]);
     }
     pasos.push(Paso::Prueba);
+    pasos.extend([
+        Paso::Arrastre,
+        Paso::Soltar,
+        Paso::MesPregunta,
+        Paso::MesPorConfirmar,
+        Paso::MesHecho,
+        Paso::MesReabierto,
+    ]);
     pasos.push(Paso::Cerrar);
     pasos.reverse();
 
@@ -90,6 +112,12 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     eprintln!("captura {nombre}: {e}");
                 }
                 ui.global::<Form>().set_tipo(0);
+                ui.global::<App>().set_alertas_abiertas(false);
+                let t = ui.global::<crate::TableroD>();
+                if t.get_arr_tipo() < 0 {
+                    t.set_editando(false);
+                    t.set_editor_abierto(false);
+                }
                 ui.window().set_size(slint::LogicalSize::new(1280., 840.));
                 est.borrow_mut().abiertas.clear();
                 let ids: Vec<i32> = est.borrow().avisos.iter().map(|a| a.id).collect();
@@ -166,6 +194,36 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     abrir_gasto(&ui, &est, id, None, None);
                     *pendiente.borrow_mut() = Some(format!("dialogo-gasto-{}", sufijo.borrow()));
                 }
+                Some(Paso::Alertas) => {
+                    navegar(&ui, &est, 1);
+                    ui.global::<App>().set_alertas_abiertas(true);
+                    *pendiente.borrow_mut() = Some(format!("alertas-{}", sufijo.borrow()));
+                }
+                Some(Paso::TableroEditable) => {
+                    ui.global::<crate::TableroD>().set_editando(true);
+                    navegar(&ui, &est, 0);
+                    *pendiente.borrow_mut() = Some(format!("tablero-editar-{}", sufijo.borrow()));
+                }
+                Some(Paso::TableroEditor) => {
+                    let t = ui.global::<crate::TableroD>();
+                    t.set_editando(true);
+                    navegar(&ui, &est, 0);
+                    t.invoke_abrir_editor(6);
+                    *pendiente.borrow_mut() = Some(format!("tablero-modulo-{}", sufijo.borrow()));
+                }
+                Some(Paso::Arrastre) => match iniciar_arrastre(&ui, &est) {
+                    Ok(()) => *pendiente.borrow_mut() = Some("tablero-arrastre".to_string()),
+                    Err(e) => {
+                        eprintln!("arrastre: {e}");
+                        let _ = std::fs::write(carpeta.join("prueba-arrastre-fallo.txt"), &e);
+                    }
+                },
+                Some(Paso::Soltar) => {
+                    if let Err(e) = probar_gestos(&ui, &est) {
+                        eprintln!("gestos: {e}");
+                        let _ = std::fs::write(carpeta.join("prueba-gestos-fallo.txt"), &e);
+                    }
+                }
                 Some(Paso::Prueba) => {
                     let r = prueba_de_humo(&ui, &est);
                     let nombre = match &r {
@@ -180,6 +238,28 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     }
                     let _ = std::fs::write(carpeta.join(format!("{nombre}.txt")), "");
                 }
+                Some(
+                    p @ (Paso::MesPregunta
+                    | Paso::MesPorConfirmar
+                    | Paso::MesHecho
+                    | Paso::MesReabierto),
+                ) => {
+                    let (r, nombre) = match p {
+                        Paso::MesPregunta => (mes_pregunta(&ui, &est), "mes-pregunta"),
+                        Paso::MesPorConfirmar => {
+                            (mes_por_confirmar(&ui, &est), "mes-por-confirmar")
+                        }
+                        Paso::MesHecho => (mes_hecho(&ui, &est), "mes-hecho"),
+                        _ => (mes_reabierto(&ui, &est), "mes-reabierto"),
+                    };
+                    match r {
+                        Ok(()) => *pendiente.borrow_mut() = Some(nombre.to_string()),
+                        Err(e) => {
+                            eprintln!("prueba de mes: {e}");
+                            let _ = std::fs::write(carpeta.join("prueba-mes-fallo.txt"), &e);
+                        }
+                    }
+                }
                 Some(Paso::Cerrar) | None => {
                     t2.stop();
                     let _ = slint::quit_event_loop();
@@ -189,15 +269,325 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
     );
 }
 
+fn raton(ui: &Ventana, ev: slint::platform::WindowEvent) {
+    ui.window().dispatch_event(ev);
+}
+
+fn pulsar(ui: &Ventana, x: f32, y: f32) {
+    use slint::platform::{PointerEventButton, WindowEvent};
+    let position = slint::LogicalPosition::new(x, y);
+    raton(ui, WindowEvent::PointerMoved { position });
+    raton(
+        ui,
+        WindowEvent::PointerPressed {
+            position,
+            button: PointerEventButton::Left,
+        },
+    );
+}
+
+fn mover(ui: &Ventana, x: f32, y: f32) {
+    raton(
+        ui,
+        slint::platform::WindowEvent::PointerMoved {
+            position: slint::LogicalPosition::new(x, y),
+        },
+    );
+}
+
+fn soltar(ui: &Ventana, x: f32, y: f32) {
+    use slint::platform::{PointerEventButton, WindowEvent};
+    raton(
+        ui,
+        WindowEvent::PointerReleased {
+            position: slint::LogicalPosition::new(x, y),
+            button: PointerEventButton::Left,
+        },
+    );
+}
+
+/// Arrastra con eventos de ratón reales el primer módulo sobre el siguiente, sin soltarlo.
+fn iniciar_arrastre(ui: &Ventana, est: &Est) -> Result<(), String> {
+    let t = ui.global::<crate::TableroD>();
+    t.set_editando(true);
+    navegar(ui, est, 0);
+    pulsar(ui, 500.0, 300.0);
+    mover(ui, 520.0, 400.0);
+    mover(ui, 620.0, 620.0);
+    if t.get_arr_tipo() != 0 {
+        return Err(format!("no empezó a arrastrar: {}", t.get_arr_tipo()));
+    }
+    Ok(())
+}
+
+/// Termina el arrastre y prueba con ratón los bordes y el botón de quitar.
+fn probar_gestos(ui: &Ventana, est: &Est) -> Result<(), String> {
+    let t = ui.global::<crate::TableroD>();
+    let cfg = |est: &Est| est.borrow().tablero.clone();
+    soltar(ui, 620.0, 620.0);
+    if t.get_arr_tipo() != -1 {
+        return Err("el arrastre no terminó".into());
+    }
+    let primero = cfg(est).modulos[0].tipo;
+    if primero == 0 {
+        return Err("soltar no cambió el orden".into());
+    }
+
+    // Borde derecho del primer módulo: buscar su altura, porque depende del contenido.
+    let derecha = 1233.0;
+    let ancho = |est: &Est| cfg(est).modulos[0].ancho;
+    let inicial = ancho(est);
+    for y in (240..460).step_by(12) {
+        pulsar(ui, derecha, y as f32);
+        mover(ui, 720.0, y as f32);
+        soltar(ui, 720.0, y as f32);
+        if ancho(est) != inicial {
+            break;
+        }
+    }
+    if ancho(est) == inicial {
+        return Err("el borde derecho no cambió el ancho".into());
+    }
+
+    // Borde inferior de un gráfico.
+    t.invoke_restablecer();
+    ui.global::<crate::Confirmar>().invoke_si();
+    // Solo el gráfico: pulsar fuera del borde arrastraría el módulo sobre otro.
+    for k in (0..14).filter(|k| *k != 3) {
+        t.invoke_ocultar(k, false);
+    }
+    let alto = |est: &Est| cfg(est).modulo(3).map(|m| m.tam);
+    let tam = alto(est);
+    for y in (360..760).step_by(8) {
+        pulsar(ui, 760.0, y as f32);
+        mover(ui, 760.0, (y + 80) as f32);
+        soltar(ui, 760.0, (y + 80) as f32);
+        if alto(est) != tam {
+            break;
+        }
+    }
+    if alto(est) == tam {
+        return Err("el borde inferior no cambió el tamaño".into());
+    }
+
+    // Botón − del primer módulo visible.
+    let visibles = |est: &Est| cfg(est).modulos.iter().filter(|m| m.visible).count();
+    let n = visibles(est);
+    for y in (190..320).step_by(4) {
+        pulsar(ui, 302.0, y as f32);
+        soltar(ui, 302.0, y as f32);
+        if visibles(est) != n {
+            break;
+        }
+    }
+    if visibles(est) != n - 1 {
+        return Err("el botón − no quitó el módulo".into());
+    }
+
+    t.invoke_restablecer();
+    ui.global::<crate::Confirmar>().invoke_si();
+    t.set_editando(false);
+    navegar(ui, est, 0);
+    Ok(())
+}
+
+/// Alertas y tablero configurables: mismos callbacks que los controles de la interfaz.
+fn prueba_configuracion(ui: &Ventana, est: &Est) -> Result<(), String> {
+    use crate::{Confirmar, TableroD};
+    use slint::Model;
+    let app = ui.global::<App>();
+    navegar(ui, est, 0);
+    if app.get_alertas().row_count() == 0 {
+        return Err("el modo demo debe tener alertas".into());
+    }
+    app.set_alerta_vencidos(false);
+    app.invoke_ajustes_cambiados();
+    if app.get_alertas().row_count() != 0 {
+        return Err("sin vencidos no debe quedar la alerta vencida".into());
+    }
+    app.set_alerta_vencidos(true);
+    app.set_alerta_activas(false);
+    app.invoke_ajustes_cambiados();
+    if app.get_alertas().row_count() != 0 {
+        return Err("desactivar no quitó las alertas".into());
+    }
+    app.set_alerta_activas(true);
+    app.invoke_ajustes_cambiados();
+    if crate::estado::leer_ajustes().alertas_activas != app.get_alerta_activas() {
+        return Err("los ajustes de alertas no se guardaron".into());
+    }
+
+    let t = ui.global::<TableroD>();
+    t.invoke_ocultar(1, false);
+    if t.get_ocultos().row_count() != 1 {
+        return Err("ocultar no funcionó".into());
+    }
+    t.invoke_ocultar(1, true);
+    t.invoke_cambiar_ancho(3, 1);
+    t.invoke_mover(4, true);
+    let cuatro_primero = t
+        .get_filas()
+        .iter()
+        .flat_map(|f| f.modulos.iter().collect::<Vec<_>>())
+        .map(|m| m.tipo)
+        .collect::<Vec<_>>();
+    if cuatro_primero.get(3) != Some(&4) {
+        return Err(format!("mover no funcionó: {cuatro_primero:?}"));
+    }
+    t.invoke_cambiar_tam(6, 0);
+    if t.get_destino().row_count() > 3 {
+        return Err("el tamaño no limitó la lista".into());
+    }
+    if crate::tablero_config::leer() != est.borrow().tablero {
+        return Err("la configuración no se guardó".into());
+    }
+    t.invoke_restablecer();
+    if !ui.global::<Confirmar>().get_visible() {
+        return Err("restablecer no pidió confirmación".into());
+    }
+    ui.global::<Confirmar>().invoke_si();
+    if est.borrow().tablero != Default::default() {
+        return Err("restablecer no funcionó".into());
+    }
+    Ok(())
+}
+
+const MES_PRUEBA: (i32, u32) = (2026, 12);
+
+fn mes_prueba(est: &Est) -> Result<sueldapp_dominio::Mes, String> {
+    sueldapp_almacen::repo::mes_por_periodo(&est.borrow().c, MES_PRUEBA.0, MES_PRUEBA.1)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "sin mes de prueba".to_string())
+}
+
+fn mes_pregunta(ui: &Ventana, est: &Est) -> Result<(), String> {
+    use crate::{Confirmar, ResumenD};
+    est.borrow_mut().resumen = MES_PRUEBA;
+    navegar(ui, est, 1);
+    let id = mes_prueba(est)?.id.ok_or("mes sin id")?;
+    let pendientes = {
+        let e = est.borrow();
+        let estados = sueldapp_almacen::repo::listar_estados(&e.c).map_err(|x| x.to_string())?;
+        sueldapp_almacen::repo::gastos_de_mes(&e.c, id)
+            .map_err(|x| x.to_string())?
+            .into_iter()
+            .filter(|g| {
+                !estados
+                    .iter()
+                    .any(|x| x.id == Some(g.estado_id) && x.cuenta_pagado)
+            })
+            .filter_map(|g| g.id)
+            .collect::<Vec<_>>()
+    };
+    let (ultimo, resto) = pendientes.split_last().ok_or("sin pendientes")?;
+    for g in resto {
+        ui.global::<ResumenD>().invoke_marcar_pagado(*g as i32);
+    }
+    if ui.global::<Confirmar>().get_visible() {
+        return Err("preguntó con pagos pendientes".into());
+    }
+    if mes_prueba(est)?.cerrado {
+        return Err("se marcó sin confirmar".into());
+    }
+    ui.global::<ResumenD>().invoke_marcar_pagado(*ultimo as i32);
+    if !ui.global::<Confirmar>().get_visible() {
+        return Err("no preguntó al pagar lo último".into());
+    }
+    Ok(())
+}
+
+fn mes_por_confirmar(ui: &Ventana, est: &Est) -> Result<(), String> {
+    use crate::{Confirmar, ResumenD};
+    ui.global::<Confirmar>().invoke_no();
+    est.borrow_mut().resumen = MES_PRUEBA;
+    navegar(ui, est, 1);
+    if mes_prueba(est)?.cerrado || !ui.global::<ResumenD>().get_por_confirmar() {
+        return Err("«ahora no» debe dejarlo por confirmar".into());
+    }
+    if ui.global::<Confirmar>().get_visible() {
+        return Err("volvió a preguntar".into());
+    }
+    Ok(())
+}
+
+fn mes_hecho(ui: &Ventana, est: &Est) -> Result<(), String> {
+    use crate::{MesesD, ResumenD};
+    // «Ver mes» del módulo Meses abre el mes en Resumen.
+    navegar(ui, est, 8);
+    est.borrow_mut().resumen = (2026, 7);
+    ui.global::<MesesD>()
+        .invoke_abrir(crate::estado::clave(MES_PRUEBA));
+    if ui.global::<App>().get_vista() != 1 || est.borrow().resumen != MES_PRUEBA {
+        return Err("«Ver mes» no abrió el mes".into());
+    }
+    if slint::Model::row_count(&ui.global::<MesesD>().get_por_confirmar()) != 1 {
+        navegar(ui, est, 8);
+    }
+    if slint::Model::row_count(&ui.global::<MesesD>().get_por_confirmar()) != 1 {
+        return Err("Meses no lista el mes por confirmar".into());
+    }
+    navegar(ui, est, 1);
+    ui.global::<ResumenD>().invoke_marcar_hecho();
+    if !mes_prueba(est)?.cerrado || ui.global::<ResumenD>().get_situacion() != "Hecho" {
+        return Err("el botón no lo marcó".into());
+    }
+    Ok(())
+}
+
+fn mes_reabierto(ui: &Ventana, est: &Est) -> Result<(), String> {
+    use crate::ResumenD;
+    est.borrow_mut().resumen = MES_PRUEBA;
+    navegar(ui, est, 1);
+    // Un gasto nuevo nace pendiente.
+    ui.global::<App>().invoke_nuevo_gasto();
+    let f = ui.global::<Form>();
+    f.set_t1("Pago nuevo".into());
+    f.set_t2("1000".into());
+    f.invoke_guardar();
+    if f.get_tipo() != 0 {
+        return Err(format!("no guardó: {}", f.get_error()));
+    }
+    if mes_prueba(est)?.cerrado || ui.global::<ResumenD>().get_situacion() != "Falta 1 pago" {
+        return Err("un pago nuevo debe reabrir el mes".into());
+    }
+    // Y con pagos pendientes el formulario de Editar mes lo rechaza.
+    crate::acciones::abrir_mes(ui, est);
+    f.set_b1(true);
+    f.invoke_guardar();
+    if f.get_tipo() == 0 || f.get_error().is_empty() || mes_prueba(est)?.cerrado {
+        return Err("Editar mes aceptó un mes con pendientes".into());
+    }
+    Ok(())
+}
+
 /// Acciona los mismos callbacks que los botones y comprueba el efecto en la base.
 fn prueba_de_humo(ui: &Ventana, est: &Est) -> Result<(), String> {
-    use crate::{App, Confirmar, ResumenD};
+    use crate::{Confirmar, ResumenD};
     let contar = |est: &Est| -> Result<usize, String> {
         sueldapp_almacen::repo::todos_gastos(&est.borrow().c)
             .map(|v| v.len())
             .map_err(|e| e.to_string())
     };
+    prueba_configuracion(ui, est)?;
     let antes = contar(est)?;
+    // Pagar una alerta la quita de la lista, y deshacer la devuelve.
+    let alertas = ui.global::<App>().get_alertas();
+    let n = slint::Model::row_count(&alertas);
+    let primera = slint::Model::row_data(&alertas, 0).ok_or("el modo demo debe tener alertas")?;
+    ui.global::<ResumenD>().invoke_marcar_pagado(primera.id);
+    if slint::Model::row_count(&ui.global::<App>().get_alertas()) != n - 1 {
+        return Err("pagar no quitó la alerta".into());
+    }
+    let aviso = est
+        .borrow()
+        .avisos
+        .last()
+        .map(|a| a.id)
+        .ok_or("sin aviso")?;
+    ui.global::<App>().invoke_deshacer(aviso);
+    if slint::Model::row_count(&ui.global::<App>().get_alertas()) != n {
+        return Err("deshacer no devolvió la alerta".into());
+    }
     // Nuevo gasto desde el formulario, con la máscara de montos.
     ui.global::<App>().invoke_nuevo_gasto();
     let f = ui.global::<Form>();

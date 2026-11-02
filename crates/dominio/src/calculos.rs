@@ -4,6 +4,119 @@ use crate::{Dinero, Gasto, Ingreso, Periodo, Tarjeta};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+/// En qué punto está el pago de un mes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SituacionMes {
+    SinGastos,
+    /// Número de pagos que faltan; un mes así nunca cuenta como hecho.
+    Pendientes(usize),
+    /// Todo pagado, a la espera de que la persona lo confirme.
+    PorConfirmar,
+    Hecho,
+}
+
+/// "No" y "Aplazado" son decisiones ya tomadas: no se espera ese pago en este mes.
+pub fn estado_espera_pago(nombre: &str, cuenta_pagado: bool) -> bool {
+    !cuenta_pagado && !matches!(crate::texto::normalizar(nombre).as_str(), "no" | "aplazado")
+}
+
+/// Los gastos fuera de bloque no cuentan, igual que en los totales del mes.
+pub fn situacion_mes(
+    cerrado: bool,
+    gastos: &[Gasto],
+    espera_pago: impl Fn(i64) -> bool,
+) -> SituacionMes {
+    let cuentan = gastos.iter().filter(|g| !g.fuera_de_bloque);
+    let pendientes = cuentan.clone().filter(|g| espera_pago(g.estado_id)).count();
+    if pendientes > 0 {
+        SituacionMes::Pendientes(pendientes)
+    } else if cerrado {
+        SituacionMes::Hecho
+    } else if cuentan.count() == 0 {
+        SituacionMes::SinGastos
+    } else {
+        SituacionMes::PorConfirmar
+    }
+}
+
+/// Situación de un mes con lo que falta por pagar.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EstadoMes {
+    pub periodo: Periodo,
+    pub situacion: SituacionMes,
+    /// Pagos que faltan y cuánto suman.
+    pub por_pagar: Dinero,
+    /// Pagos de un mes ya pasado cuya fecha de pago, si tiene, también pasó.
+    pub pagos_atrasados: usize,
+    pub por_pagar_atrasado: Dinero,
+}
+
+/// Qué falta en un mes. Con `hoy` en `AAAA-MM-DD`, un pago con fecha futura no está atrasado.
+pub fn estado_mes(
+    periodo: Periodo,
+    cerrado: bool,
+    gastos: &[Gasto],
+    espera_pago: impl Fn(i64) -> bool,
+    hoy: &str,
+) -> EstadoMes {
+    let situacion = situacion_mes(cerrado, gastos, &espera_pago);
+    let pendientes = gastos
+        .iter()
+        .filter(|g| !g.fuera_de_bloque && espera_pago(g.estado_id));
+    let ya_paso =
+        format!("{:04}-{:02}", periodo.0, periodo.1).as_str() < hoy.get(..7).unwrap_or("");
+    let atrasados = pendientes
+        .clone()
+        .filter(|g| ya_paso && g.fecha_pago.as_deref().is_none_or(|f| f < hoy));
+    EstadoMes {
+        periodo,
+        situacion,
+        por_pagar: pendientes.map(|g| g.monto).sum(),
+        pagos_atrasados: atrasados.clone().count(),
+        por_pagar_atrasado: atrasados.map(|g| g.monto).sum(),
+    }
+}
+
+/// Cifras de un conjunto de meses. Los meses sin gastos no cuentan.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ResumenEstados {
+    pub con_gastos: usize,
+    pub hechos: usize,
+    pub por_confirmar: usize,
+    pub pendientes: usize,
+    pub atrasados: usize,
+    pub pagos_pendientes: usize,
+    pub pagos_atrasados: usize,
+    pub por_pagar: Dinero,
+    pub por_pagar_atrasado: Dinero,
+    /// Mes más antiguo que aún tiene pagos pendientes.
+    pub pendiente_mas_antiguo: Option<Periodo>,
+}
+
+pub fn resumir_estados(meses: &[EstadoMes]) -> ResumenEstados {
+    let mut r = ResumenEstados::default();
+    for m in meses {
+        match m.situacion {
+            SituacionMes::SinGastos => continue,
+            SituacionMes::Hecho => r.hechos += 1,
+            SituacionMes::PorConfirmar => r.por_confirmar += 1,
+            SituacionMes::Pendientes(n) => {
+                r.pendientes += 1;
+                r.pagos_pendientes += n;
+                r.pendiente_mas_antiguo = r
+                    .pendiente_mas_antiguo
+                    .map_or(Some(m.periodo), |p| Some(p.min(m.periodo)));
+            }
+        }
+        r.con_gastos += 1;
+        r.atrasados += usize::from(m.pagos_atrasados > 0);
+        r.pagos_atrasados += m.pagos_atrasados;
+        r.por_pagar += m.por_pagar;
+        r.por_pagar_atrasado += m.por_pagar_atrasado;
+    }
+    r
+}
+
 /// Valores de un mes, con los mismos nombres que la hoja.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct TotalesMes {
@@ -122,6 +235,84 @@ pub fn redondear(d: Dinero) -> Dinero {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn estado_y_resumen_de_meses() {
+        use rust_decimal_macros::dec;
+        let espera = |id: i64| id == 2;
+        let hoy = "2026-11-02";
+        let pago = |monto, estado, fecha: Option<&str>| {
+            let mut x = g(monto, estado, false);
+            x.fecha_pago = fecha.map(String::from);
+            x
+        };
+        // Mes pasado: sin fecha o con fecha pasada está atrasado; con fecha futura, no.
+        let octubre = estado_mes(
+            (2026, 10),
+            false,
+            &[
+                pago(dec!(10), 2, None),
+                pago(dec!(20), 2, Some("2026-11-01")),
+                pago(dec!(40), 2, Some("2026-11-23")),
+                pago(dec!(80), 1, None),
+                g(dec!(160), 2, true),
+            ],
+            espera,
+            hoy,
+        );
+        assert_eq!(octubre.situacion, SituacionMes::Pendientes(3));
+        assert_eq!(octubre.por_pagar, dec!(70));
+        assert_eq!(octubre.pagos_atrasados, 2);
+        assert_eq!(octubre.por_pagar_atrasado, dec!(30));
+        // El mes actual y los futuros nunca están atrasados.
+        let actual = estado_mes((2026, 11), false, &[pago(dec!(5), 2, None)], espera, hoy);
+        assert_eq!(actual.pagos_atrasados, 0);
+        let hecho = estado_mes((2026, 9), true, &[pago(dec!(5), 1, None)], espera, hoy);
+        let por_confirmar = estado_mes((2026, 8), false, &[pago(dec!(5), 1, None)], espera, hoy);
+        let vacio = estado_mes((2026, 7), false, &[], espera, hoy);
+        assert_eq!(vacio.situacion, SituacionMes::SinGastos);
+
+        let r = resumir_estados(&[actual, octubre, hecho, por_confirmar, vacio]);
+        assert_eq!(r.con_gastos, 4);
+        assert_eq!(r.hechos, 1);
+        assert_eq!(r.por_confirmar, 1);
+        assert_eq!(r.pendientes, 2);
+        assert_eq!(r.atrasados, 1);
+        assert_eq!(r.pagos_pendientes, 4);
+        assert_eq!(r.pagos_atrasados, 2);
+        assert_eq!(r.por_pagar, dec!(75));
+        assert_eq!(r.por_pagar_atrasado, dec!(30));
+        assert_eq!(r.pendiente_mas_antiguo, Some((2026, 10)));
+        assert_eq!(resumir_estados(&[]), ResumenEstados::default());
+    }
+
+    #[test]
+    fn situacion_del_mes() {
+        let espera = |id: i64| id == 2;
+        let pagado = g(rust_decimal_macros::dec!(1), 1, false);
+        let pendiente = g(rust_decimal_macros::dec!(1), 2, false);
+        let fuera = g(rust_decimal_macros::dec!(1), 2, true);
+        use SituacionMes::*;
+        assert_eq!(situacion_mes(false, &[], espera), SinGastos);
+        assert_eq!(situacion_mes(true, &[], espera), Hecho);
+        let solo_fuera = [fuera.clone()];
+        assert_eq!(situacion_mes(false, &solo_fuera, espera), SinGastos);
+        let todo = [pagado.clone(), fuera];
+        assert_eq!(situacion_mes(false, &todo, espera), PorConfirmar);
+        assert_eq!(situacion_mes(true, &todo, espera), Hecho);
+        let falta = [pagado, pendiente];
+        assert_eq!(situacion_mes(false, &falta, espera), Pendientes(1));
+        assert_eq!(situacion_mes(true, &falta, espera), Pendientes(1));
+    }
+
+    #[test]
+    fn que_estados_esperan_pago() {
+        assert!(estado_espera_pago("Pendiente", false));
+        assert!(estado_espera_pago("Sin estado", false));
+        assert!(!estado_espera_pago("Pagado", true));
+        assert!(!estado_espera_pago("NO", false));
+        assert!(!estado_espera_pago("Aplazado", false));
+    }
+
     use super::*;
     use rust_decimal_macros::dec;
 
@@ -143,6 +334,7 @@ mod tests {
             fuera_de_bloque: fuera,
             orden: 0,
             origen: None,
+            fecha_pago: None,
         }
     }
 

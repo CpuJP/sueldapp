@@ -16,6 +16,7 @@ slint = { version = "1.18.1", default-features = false, features = ["std", "comp
 rfd = "0.17"
 png = "0.18"
 rust_decimal = "1.43.0"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 
 [lints]
 workspace = true

@@ -3,6 +3,82 @@
 use crate::{Dinero, Invalido};
 use std::str::FromStr;
 
+fn fecha_existe(anio: u32, mes: u32, dia: u32) -> bool {
+    let bisiesto =
+        anio.is_multiple_of(4) && (!anio.is_multiple_of(100) || anio.is_multiple_of(400));
+    let dias = match mes {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if bisiesto => 29,
+        2 => 28,
+        _ => return false,
+    };
+    (1000..=9999).contains(&anio) && (1..=dias).contains(&dia)
+}
+
+/// Lee `día/mes/año` (también con `-`) y la devuelve como `AAAA-MM-DD`; vacío es `None`.
+pub fn leer_fecha(texto: &str) -> Result<Option<String>, Invalido> {
+    let texto = texto.trim();
+    if texto.is_empty() {
+        return Ok(None);
+    }
+    let partes: Vec<Option<u32>> = texto
+        .split(['/', '-'])
+        .map(|p| p.trim().parse().ok())
+        .collect();
+    match partes[..] {
+        [Some(d), Some(m), Some(a)] if fecha_existe(a, m, d) => {
+            Ok(Some(format!("{a:04}-{m:02}-{d:02}")))
+        }
+        _ => Err(Invalido(format!(
+            "«{texto}» no es una fecha válida. Escríbela como día/mes/año, por ejemplo 23/11/2026."
+        ))),
+    }
+}
+
+/// `true` si `iso` es una fecha real con la forma `AAAA-MM-DD`.
+pub fn fecha_valida(iso: &str) -> bool {
+    let p: Vec<&str> = iso.split('-').collect();
+    match p[..] {
+        [a, m, d] if a.len() == 4 && m.len() == 2 && d.len() == 2 => {
+            match (a.parse(), m.parse(), d.parse()) {
+                (Ok(a), Ok(m), Ok(d)) => fecha_existe(a, m, d),
+                _ => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+/// Días desde `desde` hasta `hasta` (negativo si `hasta` ya pasó); `None` si alguna no es válida.
+pub fn dias_entre(desde: &str, hasta: &str) -> Option<i64> {
+    // Algoritmo civil de Howard Hinnant.
+    let dia_absoluto = |iso: &str| -> Option<i64> {
+        if !fecha_valida(iso) {
+            return None;
+        }
+        let mut p = iso.split('-').map(|x| x.parse::<i64>().ok());
+        let (a, m, d) = (p.next()??, p.next()??, p.next()??);
+        let y = if m <= 2 { a - 1 } else { a };
+        let doy = (153 * (m + if m > 2 { -3 } else { 9 }) + 2) / 5 + d - 1;
+        Some(
+            y.div_euclid(400) * 146_097 + y.rem_euclid(400) * 365 + y.rem_euclid(400) / 4
+                - y.rem_euclid(400) / 100
+                + doy,
+        )
+    };
+    Some(dia_absoluto(hasta)? - dia_absoluto(desde)?)
+}
+
+/// `AAAA-MM-DD` como `DD/MM/AAAA`.
+pub fn formatear_fecha(iso: &str) -> String {
+    let p: Vec<&str> = iso.split('-').collect();
+    match p[..] {
+        [a, m, d] => format!("{d}/{m}/{a}"),
+        _ => iso.to_string(),
+    }
+}
+
 /// `$ 1.234.567,89`; negativos como `-$ 1,01` (igual que la hoja).
 pub fn formatear(d: Dinero) -> String {
     let d = d.round_dp(2);
@@ -71,6 +147,40 @@ pub fn leer_monto(texto: &str) -> Result<Dinero, Invalido> {
 mod tests {
     use super::*;
     use rust_decimal_macros::dec;
+
+    #[test]
+    fn cuenta_dias_entre_fechas() {
+        assert_eq!(dias_entre("2026-11-02", "2026-11-23"), Some(21));
+        assert_eq!(dias_entre("2026-11-23", "2026-11-23"), Some(0));
+        assert_eq!(dias_entre("2026-11-24", "2026-11-23"), Some(-1));
+        assert_eq!(dias_entre("2026-12-31", "2027-01-01"), Some(1));
+        assert_eq!(dias_entre("2028-02-28", "2028-03-01"), Some(2));
+        assert_eq!(dias_entre("2026-02-28", "2026-03-01"), Some(1));
+        assert_eq!(dias_entre("2000-01-01", "2026-01-01"), Some(9497));
+        assert_eq!(dias_entre("mal", "2026-01-01"), None);
+    }
+
+    #[test]
+    fn lee_y_formatea_fechas() {
+        assert_eq!(leer_fecha("23/11/2026").unwrap().unwrap(), "2026-11-23");
+        assert_eq!(leer_fecha(" 3-2-2028 ").unwrap().unwrap(), "2028-02-03");
+        assert_eq!(leer_fecha("29/02/2028").unwrap().unwrap(), "2028-02-29");
+        assert_eq!(leer_fecha("  ").unwrap(), None);
+        for mala in [
+            "29/02/2026",
+            "31/04/2026",
+            "23/13/2026",
+            "23/11",
+            "23/11/26",
+            "ayer",
+        ] {
+            assert!(leer_fecha(mala).is_err(), "{mala}");
+        }
+        assert!(fecha_valida("2026-11-23"));
+        assert!(!fecha_valida("2026-02-30"));
+        assert!(!fecha_valida("2026-1-5"));
+        assert_eq!(formatear_fecha("2026-11-23"), "23/11/2026");
+    }
 
     #[test]
     fn formatea_como_la_hoja() {

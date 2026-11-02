@@ -62,6 +62,40 @@ export struct Linea {
 export struct FilaTabla {
     c: [string],
     negativos: [bool],
+    estado: string,
+    tipo: int,
+}
+
+export struct ModuloV {
+    tipo: int,
+    titulo: string,
+    titulo-propio: string,
+    ancho: int, // doceavos
+    ancho-i: int,
+    tam: int,
+    vista: int,
+    columnas: int,
+    alto: float,
+    con-titulo: bool,
+    con-tam: bool,
+    vistas: [string],
+    tams: [string],
+}
+
+export struct FilaModulos {
+    modulos: [ModuloV],
+}
+
+export struct FilaMes {
+    clave: int,
+    nombre: string,
+    situacion: string,
+    tipo: int,
+    pagado: string,
+    por-pagar: string,
+    avance: float,
+    atrasado: bool,
+    por-confirmar: bool,
 }
 
 export struct Preset {
@@ -138,6 +172,14 @@ export global App {
     in property <bool> vacia;
     in property <string> ruta-base;
     in property <[Aviso]> avisos;
+    in property <[Fila]> alertas;
+    in property <string> alertas-texto;
+    in-out property <bool> alertas-abiertas;
+    in-out property <bool> alerta-activas: true;
+    in-out property <int> alerta-dias: 3;
+    in-out property <bool> alerta-vencidos: true;
+    in-out property <bool> alerta-emergente: true;
+    in-out property <bool> alerta-boton: true;
     in-out property <int> tam-pagina; // índice: 0=10, 1=25, 2=50
     callback navegar(int);
     callback deshacer(int);
@@ -183,6 +225,34 @@ export global TableroD {
     in property <[Linea]> deudas;
     in property <[Linea]> mayores;
     in property <[FilaTabla]> tabla;
+    in property <[FilaModulos]> filas;
+    in property <[ModuloV]> ocultos;
+    in property <int> espaciado;
+    in-out property <bool> editando;
+    // Arrastre en curso, en coordenadas de la ventana. -1: ninguno.
+    in-out property <int> arr-tipo: -1;
+    in-out property <string> arr-titulo;
+    in-out property <length> arr-x;
+    in-out property <length> arr-y;
+    in-out property <int> arr-destino: -1;
+    in-out property <bool> arr-antes;
+    in-out property <bool> editor-abierto;
+    in-out property <ModuloV> editor;
+    in-out property <bool> anadir-abierto;
+    callback abrir-editor(int);
+    callback mover-a(int, int, bool);
+    callback mover(int, bool);
+    callback ocultar(int, bool);
+    callback cambiar-ancho(int, int);
+    callback cambiar-tam(int, int);
+    callback cambiar-vista(int, int);
+    callback escribir-titulo(int, string);
+    callback aplicar-titulo();
+    callback cambiar-espaciado(int);
+    callback restablecer();
+    in property <[Cifra]> meses-cifras;
+    in property <float> meses-avance;
+    in property <string> meses-avance-texto;
     callback aplicar-rango(int, int);
     callback aplicar-preset(int);
     callback aplicar-anio(int);
@@ -192,7 +262,9 @@ export global ResumenD {
     in-out property <int> modo; // 0 mes, 1 año
     in property <string> periodo;
     in property <bool> existe;
-    in property <bool> cerrado;
+    in property <string> situacion;
+    in property <int> situacion-tipo;
+    in property <bool> por-confirmar;
     in property <string> hero-etiqueta;
     in property <string> hero-valor;
     in property <bool> hero-negativo;
@@ -217,7 +289,19 @@ export global ResumenD {
     callback editar-ingreso(int);
     callback nuevo-ingreso();
     callback editar-mes();
+    callback marcar-hecho();
     callback paginar(string, bool);
+}
+
+export global MesesD {
+    in property <[Cifra]> cifras;
+    in property <float> avance;
+    in property <string> avance-texto;
+    in property <[FilaMes]> por-confirmar;
+    in property <[FilaMes]> pendientes;
+    in property <[FilaMes]> hechos;
+    callback abrir(int);
+    callback marcar-hecho(int);
 }
 
 export global MovsD {
