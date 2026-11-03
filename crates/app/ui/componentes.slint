@@ -1,5 +1,5 @@
 // Componentes base con el lenguaje visual de vidrio de Sueldapp.
-import { Tema } from "tema.slint";
+import { Tema, Disp } from "tema.slint";
 import { Fila, Pagina, Util } from "estado.slint";
 
 export global Iconos {
@@ -616,6 +616,7 @@ export component Titulo inherits Text {
     color: Tema.texto;
     font-size: 17px;
     font-weight: 700;
+    wrap: word-wrap;
 }
 
 export component Separador inherits Rectangle {
@@ -631,7 +632,7 @@ export component Paginador inherits HorizontalLayout {
     callback anterior();
     callback siguiente();
     callback cambiar-tam(int);
-    spacing: 14px;
+    spacing: Disp.pequeno ? 8px : 14px;
     padding-top: 14px;
     visible: pagina.cantidad > 0;
     Text {
@@ -641,7 +642,7 @@ export component Paginador inherits HorizontalLayout {
         vertical-alignment: center;
         accessible-role: text;
     }
-    if !root.compacto: Text {
+    if !root.compacto && !Disp.pequeno: Text {
         text: "Por página";
         color: Tema.texto-2;
         font-weight: 600;
@@ -663,7 +664,7 @@ export component Paginador inherits HorizontalLayout {
     }
     Boton {
         texto: "Anterior";
-        solo-icono: root.compacto;
+        solo-icono: root.compacto || Disp.pequeno;
         icono: Iconos.anterior;
         habilitado: root.pagina.anterior;
         etiqueta-accesible: "Página anterior";
@@ -699,7 +700,7 @@ component FilaGasto inherits Rectangle {
         padding-left: 10px;
         padding-right: 10px;
         spacing: 12px;
-        if con-mes: Text {
+        if con-mes && !Disp.pequeno: Text {
             width: 22%;
             text: fila.periodo;
             color: Tema.texto;
@@ -710,21 +711,49 @@ component FilaGasto inherits Rectangle {
             horizontal-stretch: 1;
             alignment: center;
             spacing: 3px;
+            padding-top: Disp.pequeno ? 8px : 0px;
+            padding-bottom: Disp.pequeno ? 8px : 0px;
             Text {
                 text: fila.titulo;
                 color: Tema.texto;
                 font-size: 14.5px;
                 overflow: elide;
             }
-            if fila.etiquetas.length > 0: HorizontalLayout {
-                spacing: 6px;
-                alignment: start;
-                for e in fila.etiquetas: Chip {
-                    texto: e;
+            if con-mes && Disp.pequeno: Ayuda {
+                text: fila.periodo;
+            }
+            // Si no caben, se recortan en vez de pisar las otras columnas.
+            if fila.etiquetas.length > 0: Rectangle {
+                height: 20px;
+                clip: true;
+                HorizontalLayout {
+                    x: 0;
+                    width: self.preferred-width;
+                    spacing: 6px;
+                    alignment: start;
+                    for e in fila.etiquetas: Chip {
+                        texto: e;
+                    }
+                }
+            }
+            if Disp.pequeno: HorizontalLayout {
+                spacing: 8px;
+                padding-top: 4px;
+                EstadoChip {
+                    texto: fila.estado;
+                    tipo: fila.tipo;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: fila.monto;
+                    color: fila.negativo ? Tema.negativo : Tema.texto;
+                    font-size: 14.5px;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
                 }
             }
         }
-        VerticalLayout {
+        if !Disp.pequeno: VerticalLayout {
             width: 150px;
             alignment: center;
             HorizontalLayout {
@@ -735,7 +764,7 @@ component FilaGasto inherits Rectangle {
                 }
             }
         }
-        Text {
+        if !Disp.pequeno: Text {
             width: 150px;
             text: fila.monto;
             color: fila.negativo ? Tema.negativo : Tema.texto;
@@ -774,7 +803,7 @@ export component TablaGastos inherits VerticalLayout {
     if filas.length == 0: Ayuda {
         text: "No hay gastos.";
     }
-    if filas.length > 0: HorizontalLayout {
+    if filas.length > 0 && !Disp.pequeno: HorizontalLayout {
         padding-left: 10px;
         padding-right: 10px;
         padding-bottom: 8px;

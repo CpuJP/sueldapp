@@ -1,4 +1,4 @@
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { DeudasD, TarjetasD, App, DeudaFila, TarjetaFila } from "../estado.slint";
 import { Boton, Iconos, Progreso, Separador, Ayuda, Titulo, TablaGastos, Paginador, Chip } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel } from "comun.slint";
@@ -18,6 +18,8 @@ component Dato inherits HorizontalLayout {
         color: root.negativo ? Tema.negativo : Tema.texto;
         font-size: 13.5px;
         font-weight: 700;
+        wrap: word-wrap;
+        horizontal-stretch: 1;
     }
 }
 
@@ -88,7 +90,7 @@ component FilaDeuda inherits VerticalLayout {
     HorizontalLayout {
         spacing: 20px;
         VerticalLayout {
-            width: 30%;
+            width: Disp.pequeno ? 38% : 30%;
             alignment: center;
             spacing: 4px;
             Text {
@@ -128,23 +130,31 @@ component FilaDeuda inherits VerticalLayout {
             }
         }
     }
-    HorizontalLayout {
-        spacing: 22px;
-        alignment: start;
+    GridLayout {
+        spacing-horizontal: 22px;
+        spacing-vertical: 4px;
         Dato {
+            col: mod(0, (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
+            row: floor(0 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
             etiqueta: "Pagado:";
             valor: root.d.pagado + (root.d.total != "" ? " de " + root.d.total : "");
         }
         Text {
+            col: mod(1, (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
+            row: floor(1 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
             text: root.d.pendiente;
             color: Tema.texto-2;
             font-size: 13.5px;
         }
         Dato {
+            col: mod(2, (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
+            row: floor(2 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
             etiqueta: "Cuotas pagadas:";
             valor: root.d.cuotas;
         }
         Dato {
+            col: mod(3, (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
+            row: floor(3 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 4));
             etiqueta: "Fin estimado:";
             valor: root.d.fin;
         }
@@ -265,7 +275,7 @@ component FilaTarjeta inherits VerticalLayout {
     HorizontalLayout {
         spacing: 20px;
         VerticalLayout {
-            width: 30%;
+            width: Disp.pequeno ? 38% : 30%;
             alignment: center;
             spacing: 2px;
             Text {
@@ -302,31 +312,43 @@ component FilaTarjeta inherits VerticalLayout {
             }
         }
     }
-    HorizontalLayout {
-        spacing: 22px;
-        alignment: start;
+    GridLayout {
+        spacing-horizontal: 22px;
+        spacing-vertical: 4px;
         Dato {
+            col: mod(0, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(0 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Cupo:";
             valor: root.t.cupo;
         }
         Dato {
+            col: mod(1, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(1 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Saldo:";
             valor: root.t.saldo;
         }
         Dato {
+            col: mod(2, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(2 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Disponible:";
             valor: root.t.disponible;
             negativo: root.t.disponible-negativo;
         }
         Dato {
+            col: mod(3, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(3 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Corte:";
             valor: root.t.corte;
         }
         Dato {
+            col: mod(4, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(4 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Pago:";
             valor: root.t.pago;
         }
         Dato {
+            col: mod(5, (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
+            row: floor(5 / (Disp.pequeno ? 1 : Disp.medio ? 2 : 6));
             etiqueta: "Total pagado:";
             valor: root.t.total-pagado;
         }

@@ -1,5 +1,5 @@
 import { AboutSlint } from "std-widgets.slint";
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { CatsD, DatosD, App, ItemFila, Pagina } from "../estado.slint";
 import { Boton, Iconos, Campo, Separador, Ayuda, Titulo, Paginador, Interruptor, Casilla, Segmentado, EstadoChip, Selector } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel, Cifras, TablaTexto } from "comun.slint";
@@ -89,10 +89,11 @@ export component PantallaCatalogos inherits VerticalLayout {
         titulo: "Catálogos";
     }
     Desplazable {
-        HorizontalLayout {
-            spacing: 18px;
-            alignment: stretch;
+        GridLayout {
+            spacing: Disp.separacion;
             SeccionCatalogo {
+                col: 0;
+                row: 0;
                 tipo: 0;
                 titulo: "Estados";
                 ayuda: "Los estados que cuentan como pagado suman en «Ya pagado».";
@@ -100,6 +101,8 @@ export component PantallaCatalogos inherits VerticalLayout {
                 pagina: CatsD.pag-estados;
             }
             SeccionCatalogo {
+                col: Disp.medio ? 0 : 1;
+                row: Disp.medio ? 1 : 0;
                 tipo: 1;
                 titulo: "Categorías";
                 ayuda: "Para agrupar y filtrar gastos.";
@@ -107,6 +110,8 @@ export component PantallaCatalogos inherits VerticalLayout {
                 pagina: CatsD.pag-categorias;
             }
             SeccionCatalogo {
+                col: Disp.medio ? 0 : 2;
+                row: Disp.medio ? 2 : 0;
                 tipo: 2;
                 titulo: "Fuentes de ingreso";
                 ayuda: "Sueldo, prima y otros ingresos.";
@@ -195,14 +200,14 @@ export component PantallaDatos inherits VerticalLayout {
                     spacing: 10px;
                     padding-top: 4px;
                     padding-bottom: 4px;
-                    Text {
+                    if !Disp.pequeno: Text {
                         width: 160px;
                         text: l.origen;
                         color: Tema.texto-2;
                         font-size: 13px;
                         overflow: elide;
                     }
-                    Text {
+                    if !Disp.pequeno: Text {
                         width: 100px;
                         text: l.accion;
                         color: Tema.texto-2;
@@ -242,16 +247,19 @@ export component PantallaDatos inherits VerticalLayout {
             Ayuda {
                 text: "Guarda una copia de todos tus datos para abrirla en cualquier hoja de cálculo o para volver a importarla.";
             }
-            HorizontalLayout {
-                alignment: start;
+            GridLayout {
                 spacing: 8px;
                 Boton {
+                    col: 0;
+                    row: 0;
                     texto: "Exportar a .ods";
                     clicked => {
                         DatosD.exportar-ods();
                     }
                 }
                 Boton {
+                    col: Disp.pequeno ? 0 : 1;
+                    row: Disp.pequeno ? 1 : 0;
                     texto: "Exportar a .csv (una carpeta)";
                     clicked => {
                         DatosD.exportar-csv();
@@ -284,13 +292,15 @@ export component PantallaDatos inherits VerticalLayout {
     }
 }
 
-component FilaAjuste inherits HorizontalLayout {
+component FilaAjuste inherits GridLayout {
     in property <string> titulo;
     in property <string> ayuda;
     padding-top: 12px;
     padding-bottom: 12px;
-    spacing: 18px;
+    spacing: Disp.pequeno ? 8px : 18px;
     VerticalLayout {
+        col: 0;
+        row: 0;
         horizontal-stretch: 1;
         alignment: center;
         spacing: 2px;
@@ -299,15 +309,22 @@ component FilaAjuste inherits HorizontalLayout {
             color: Tema.texto-2;
             font-weight: 600;
             font-size: 13.5px;
+            wrap: word-wrap;
         }
         Ayuda {
             text: root.ayuda;
         }
     }
-    VerticalLayout {
-        alignment: center;
+    // El control va debajo cuando no cabe a la derecha del texto.
+    HorizontalLayout {
+        col: Disp.pequeno ? 0 : 1;
+        row: Disp.pequeno ? 1 : 0;
+        alignment: Disp.pequeno ? start : end;
         horizontal-stretch: 0;
-        @children
+        VerticalLayout {
+            alignment: center;
+            @children
+        }
     }
 }
 
@@ -321,6 +338,18 @@ export component PantallaAjustes inherits VerticalLayout {
             Titulo {
                 text: "Apariencia";
             }
+            FilaAjuste {
+                titulo: "Menú compacto";
+                ayuda: "Muestra solo los íconos del menú lateral. Con la ventana estrecha se compacta solo.";
+                Interruptor {
+                    etiqueta: "Menú compacto";
+                    activo <=> Disp.menu-compacto;
+                    cambiado => {
+                        App.ajustes-cambiados();
+                    }
+                }
+            }
+            Separador { }
             FilaAjuste {
                 titulo: "Reducir transparencia";
                 ayuda: "Cambia el vidrio por superficies sólidas. Mejora la lectura.";
@@ -351,7 +380,7 @@ export component PantallaAjustes inherits VerticalLayout {
                 Segmentado {
                     etiqueta: "Tema";
                     opciones: ["Sistema", "Claro", "Oscuro"];
-                    iconos: [Iconos.sistema, Iconos.sol, Iconos.luna];
+                    iconos: Disp.pequeno ? [] : [Iconos.sistema, Iconos.sol, Iconos.luna];
                     indice <=> Tema.modo;
                     cambiado => {
                         App.ajustes-cambiados();

@@ -27,6 +27,12 @@ enum Paso {
     TableroEditable,
     TableroEditor,
     /// Pagar lo último de un mes: pregunta, botón de Resumen y reapertura.
+    /// Pantalla con la ventana de un tamaño dado.
+    Tamano(f32, f32, i32, String),
+    /// Formularios en la ventana más pequeña.
+    DialogoMovil,
+    AlertasMovil,
+    PruebaMenu,
     Arrastre,
     Soltar,
     MesPregunta,
@@ -92,6 +98,26 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
         Paso::MesHecho,
         Paso::MesReabierto,
     ]);
+    // Al final: cambian el tamaño de la ventana y las pruebas de ratón usan posiciones fijas.
+    pasos.push(Paso::PruebaMenu);
+    for (ancho, alto, nombre) in [
+        (360.0, 640.0, "movil"),
+        (600.0, 800.0, "estrecha"),
+        (768.0, 1024.0, "tableta"),
+        (1024.0, 700.0, "media"),
+        (800.0, 420.0, "baja"),
+        (1920.0, 1080.0, "ancha"),
+    ] {
+        for (v, n) in vistas {
+            pasos.push(Paso::Tamano(
+                ancho,
+                alto,
+                v,
+                format!("adaptar-{nombre}-{n}"),
+            ));
+        }
+    }
+    pasos.extend([Paso::DialogoMovil, Paso::AlertasMovil]);
     pasos.push(Paso::Cerrar);
     pasos.reverse();
 
@@ -211,6 +237,30 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     t.invoke_abrir_editor(6);
                     *pendiente.borrow_mut() = Some(format!("tablero-modulo-{}", sufijo.borrow()));
                 }
+                Some(Paso::Tamano(ancho, alto, v, nombre)) => {
+                    tamano(&ui, ancho, alto);
+                    navegar(&ui, &est, v);
+                    *pendiente.borrow_mut() = Some(nombre);
+                }
+                Some(Paso::DialogoMovil) => {
+                    tamano(&ui, 360., 640.);
+                    navegar(&ui, &est, 1);
+                    let id = est.borrow().visibles.keys().min().copied();
+                    abrir_gasto(&ui, &est, id, None, None);
+                    *pendiente.borrow_mut() = Some("adaptar-movil-dialogo".to_string());
+                }
+                Some(Paso::AlertasMovil) => {
+                    tamano(&ui, 360., 640.);
+                    navegar(&ui, &est, 1);
+                    ui.global::<App>().set_alertas_abiertas(true);
+                    *pendiente.borrow_mut() = Some("adaptar-movil-alertas".to_string());
+                }
+                Some(Paso::PruebaMenu) => {
+                    if let Err(e) = probar_menu(&ui) {
+                        eprintln!("menú: {e}");
+                        let _ = std::fs::write(carpeta.join("prueba-menu-fallo.txt"), &e);
+                    }
+                }
                 Some(Paso::Arrastre) => match iniciar_arrastre(&ui, &est) {
                     Ok(()) => *pendiente.borrow_mut() = Some("tablero-arrastre".to_string()),
                     Err(e) => {
@@ -267,6 +317,71 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
             }
         },
     );
+}
+
+fn tamano(ui: &Ventana, w: f32, h: f32) {
+    let size = slint::LogicalSize::new(w, h);
+    ui.window().set_size(size);
+    ui.window()
+        .dispatch_event(slint::platform::WindowEvent::Resized { size });
+    // `changed width` corre en el siguiente ciclo de eventos; la prueba lo necesita ya.
+    ui.global::<crate::Disp>().set_ventana(w);
+    ui.global::<crate::Disp>().set_alto(h);
+}
+
+/// Colapsa y expande el menú con clics reales, y comprueba el modo automático.
+fn probar_menu(ui: &Ventana) -> Result<(), String> {
+    use crate::Disp;
+    let d = ui.global::<Disp>();
+    let clic = |x: f32, y: f32| {
+        pulsar(ui, x, y);
+        soltar(ui, x, y);
+    };
+    tamano(ui, 1280.0, 840.0);
+    if d.get_compacto() {
+        return Err("el menú debe empezar completo".into());
+    }
+    for x in (216..276).step_by(6) {
+        clic(x as f32, 50.0);
+        if d.get_compacto() {
+            break;
+        }
+    }
+    if !d.get_compacto() || d.get_ancho_menu() != 72.0 {
+        return Err("el botón no contrajo el menú".into());
+    }
+    if !crate::estado::leer_ajustes().menu_compacto {
+        return Err("no se guardó el menú compacto".into());
+    }
+    for y in (60..140).step_by(6) {
+        clic(54.0, y as f32);
+        if !d.get_compacto() {
+            break;
+        }
+    }
+    if d.get_compacto() {
+        return Err("el botón no expandió el menú".into());
+    }
+    // Ventana estrecha: se compacta sola y el botón lo abre encima, sin cambiar la preferencia.
+    tamano(ui, 700.0, 700.0);
+    if !d.get_forzado() || !d.get_compacto() || d.get_menu_compacto() {
+        return Err("no se compactó solo".into());
+    }
+    for y in (60..140).step_by(6) {
+        clic(54.0, y as f32);
+        if d.get_menu_abierto() {
+            break;
+        }
+    }
+    if !d.get_menu_abierto() {
+        return Err("el botón no abrió el menú encima".into());
+    }
+    tamano(ui, 1280.0, 840.0);
+    // El menú encima solo se dibuja con la ventana estrecha; `changed width` limpia la marca después.
+    if d.get_forzado() || d.get_compacto() {
+        return Err("al ensanchar debe volver a la forma normal".into());
+    }
+    Ok(())
 }
 
 fn raton(ui: &Ventana, ev: slint::platform::WindowEvent) {

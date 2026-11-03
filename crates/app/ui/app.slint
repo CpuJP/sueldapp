@@ -1,4 +1,5 @@
-import { Tema } from "tema.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Tema, Disp } from "tema.slint";
 import { App, Util, TableroD, ResumenD, MesesD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar, Aviso } from "estado.slint";
 import { Vidrio, Boton, Icono, Iconos } from "componentes.slint";
 import { PantallaTablero } from "pantallas/tablero.slint";
@@ -10,7 +11,7 @@ import { PantallaMeses } from "pantallas/meses.slint";
 import { Dialogo, DialogoAlertas, DialogoAnadir, DialogoConfirmar, DialogoModulo } from "dialogos.slint";
 import { Notificaciones } from "notificaciones.slint";
 
-export { Tema, App, Util, TableroD, ResumenD, MesesD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
+export { Tema, Disp, App, Util, TableroD, ResumenD, MesesD, MovsD, DeudasD, TarjetasD, CatsD, DatosD, Form, Confirmar }
 
 component Fondo inherits Rectangle {
     background: Tema.fondo;
@@ -45,11 +46,37 @@ component Fondo inherits Rectangle {
     }
 }
 
+component Logo inherits Rectangle {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: Tema.acento;
+    for h[i] in [6, 9, 12]: Rectangle {
+        x: (5 + i * 5) * 1px;
+        y: (24 - h) * 1px;
+        width: 3.4px;
+        height: h * 1px;
+        border-radius: 1px;
+        background: Tema.acento-texto;
+    }
+    Rectangle {
+        x: 17px;
+        y: 4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        background: Tema.moneda;
+        border-width: 1.2px;
+        border-color: Tema.acento-texto;
+    }
+}
+
 component ItemMenu inherits Rectangle {
     in property <string> texto;
     in property <string> icono;
     in property <string> atajo;
     in property <bool> actual;
+    in property <bool> compacto;
     callback activado();
     height: 44px;
     border-radius: Tema.radio-m;
@@ -63,11 +90,22 @@ component ItemMenu inherits Rectangle {
         activado();
     }
     forward-focus: fs;
+    // Sin texto visible, el nombre aparece al pasar el puntero o al enfocar con teclado.
+    property <bool> senalado: root.compacto && (ta.has-hover || fs.has-focus);
+    changed senalado => {
+        if senalado {
+            Disp.tip = root.texto;
+            Disp.tip-y = self.absolute-position.y + (self.height - 30px) / 2;
+        } else if Disp.tip == root.texto {
+            Disp.tip = "";
+        }
+    }
     animate background { duration: Tema.rapido; }
     HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 10px;
+        padding-left: root.compacto ? 0px : 12px;
+        padding-right: root.compacto ? 0px : 10px;
         spacing: 12px;
+        alignment: root.compacto ? center : stretch;
         VerticalLayout {
             alignment: center;
             Icono {
@@ -78,7 +116,7 @@ component ItemMenu inherits Rectangle {
                 grosor: 1.8px;
             }
         }
-        Text {
+        if !root.compacto: Text {
             text: texto;
             color: actual ? Tema.texto : Tema.texto-2;
             font-weight: 600;
@@ -87,7 +125,7 @@ component ItemMenu inherits Rectangle {
             wrap: word-wrap;
             horizontal-stretch: 1;
         }
-        VerticalLayout {
+        if !root.compacto: VerticalLayout {
             alignment: center;
             Rectangle {
                 height: 20px;
@@ -131,25 +169,182 @@ component ItemMenu inherits Rectangle {
     }
 }
 
+// Menú lateral: completo o solo con íconos.
+component Menu inherits Vidrio {
+    in property <bool> compacto;
+    property <[string]> nombres: ["Tablero", "Resumen", "Meses", "Movimientos", "Deudas", "Tarjetas", "Catálogos", "Importar y exportar", "Ajustes"];
+    property <[string]> iconos: [Iconos.tablero, Iconos.resumen, Iconos.calendario, Iconos.movimientos, Iconos.deudas, Iconos.tarjetas, Iconos.catalogos, Iconos.datos, Iconos.ajustes];
+    property <[int]> vistas: [0, 1, 8, 2, 3, 4, 5, 6, 7];
+    callback alternar();
+    callback elegido();
+    VerticalLayout {
+        padding: root.compacto ? 8px : 12px;
+        padding-top: 14px;
+        spacing: 4px;
+        if !root.compacto: HorizontalLayout {
+            vertical-stretch: 0;
+            padding-left: 10px;
+            padding-bottom: 10px;
+            spacing: 10px;
+            Logo { }
+            Text {
+                text: "Sueldapp";
+                color: Tema.texto;
+                font-size: 18px;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            VerticalLayout {
+                alignment: center;
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.anterior;
+                    etiqueta-accesible: "Contraer el menú (Alt + M)";
+                    clicked => {
+                        root.alternar();
+                    }
+                }
+            }
+        }
+        if root.compacto: VerticalLayout {
+            vertical-stretch: 0;
+            spacing: 8px;
+            padding-bottom: 6px;
+            HorizontalLayout {
+                alignment: center;
+                Logo { }
+            }
+            HorizontalLayout {
+                alignment: center;
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.siguiente;
+                    etiqueta-accesible: "Expandir el menú (Alt + M)";
+                    clicked => {
+                        root.alternar();
+                    }
+                }
+            }
+        }
+        // En ventanas bajas, las secciones se desplazan.
+        ScrollView {
+            vertical-stretch: 1;
+            min-height: 44px;
+            content-width: self.visible-width;
+            content-height: lista.preferred-height;
+            lista := VerticalLayout {
+                width: parent.visible-width;
+                alignment: start;
+                spacing: 4px;
+                for n[i] in root.nombres: ItemMenu {
+                    texto: n;
+                    icono: root.iconos[i];
+                    atajo: "Alt " + (i + 1);
+                    compacto: root.compacto;
+                    actual: App.vista == root.vistas[i];
+                    activado => {
+                        App.navegar(root.vistas[i]);
+                        root.elegido();
+                    }
+                }
+            }
+        }
+        if App.alertas.length > 0 && App.alerta-boton: HorizontalLayout {
+            vertical-stretch: 0;
+            alignment: stretch;
+            Boton {
+                texto: App.alertas-texto;
+                solo-icono: root.compacto;
+                icono: Iconos.alerta;
+                etiqueta-accesible: App.alertas-texto;
+                clicked => {
+                    App.alertas-abiertas = true;
+                    root.elegido();
+                }
+                if root.compacto: Rectangle {
+                    x: parent.width - 16px;
+                    y: -2px;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 9px;
+                    background: Tema.acento;
+                    Text {
+                        text: App.alertas.length;
+                        color: Tema.acento-texto;
+                        font-size: 11px;
+                        font-weight: 700;
+                    }
+                }
+            }
+        }
+        if App.demo: Rectangle {
+            height: 34px;
+            border-radius: Tema.radio-s;
+            background: Tema.aviso-suave;
+            Text {
+                x: root.compacto ? 0px : 10px;
+                width: root.compacto ? parent.width : self.preferred-width;
+                text: root.compacto ? "Demo" : "Datos de demostración";
+                color: Tema.aviso;
+                font-weight: 600;
+                font-size: root.compacto ? 11.5px : 13px;
+                horizontal-alignment: root.compacto ? center : left;
+                vertical-alignment: center;
+                height: parent.height;
+            }
+        }
+    }
+}
+
 export component Ventana inherits Window {
     title: "Sueldapp";
     icon: @image-url("../icons/128x128@2x.png");
     preferred-width: 1280px;
     preferred-height: 840px;
-    min-width: 900px;
-    min-height: 600px;
+    min-width: 360px;
+    min-height: 420px;
     background: Tema.fondo;
     default-font-size: 15px;
-    property <[string]> nombres: ["Tablero", "Resumen", "Meses", "Movimientos", "Deudas", "Tarjetas", "Catálogos", "Importar y exportar", "Ajustes"];
-    property <[string]> iconos: [Iconos.tablero, Iconos.resumen, Iconos.calendario, Iconos.movimientos, Iconos.deudas, Iconos.tarjetas, Iconos.catalogos, Iconos.datos, Iconos.ajustes];
 
     // Número de vista de cada entrada del menú.
     property <[int]> vistas: [0, 1, 8, 2, 3, 4, 5, 6, 7];
+
+    // Medidas para toda la interfaz; al cruzar un punto de corte, el Tablero reparte sus filas.
+    init => {
+        Disp.ventana = self.width;
+        Disp.alto = self.height;
+    }
+    changed width => {
+        Disp.ventana = self.width;
+        if !Disp.forzado {
+            Disp.menu-abierto = false;
+        }
+    }
+    changed height => {
+        Disp.alto = self.height;
+    }
+    property <int> modo: Disp.modo;
+    changed modo => {
+        App.disposicion-cambiada();
+    }
+    function alternar-menu() {
+        if Disp.forzado {
+            Disp.menu-abierto = !Disp.menu-abierto;
+        } else {
+            Disp.menu-compacto = !Disp.menu-compacto;
+            App.ajustes-cambiados();
+        }
+    }
 
     forward-focus: atajos;
     atajos := FocusScope {
         key-pressed(e) => {
             if e.modifiers.alt {
+                if e.text == "m" || e.text == "M" {
+                    root.alternar-menu();
+                    return accept;
+                }
                 if e.text >= "1" && e.text <= "9" {
                     App.navegar(root.vistas[e.text.to-float() - 1]);
                     return accept;
@@ -169,84 +364,15 @@ export component Ventana inherits Window {
         Fondo { }
 
         HorizontalLayout {
-            padding: 18px;
-            spacing: 18px;
-            Vidrio {
-                width: 248px;
-                VerticalLayout {
-                    padding: 12px;
-                    padding-top: 18px;
-                    spacing: 4px;
-                    HorizontalLayout {
-                        padding-left: 10px;
-                        padding-bottom: 14px;
-                        spacing: 10px;
-                        Rectangle {
-                            width: 30px;
-                            height: 30px;
-                            border-radius: 8px;
-                            background: Tema.acento;
-                            for h[i] in [6, 9, 12]: Rectangle {
-                                x: (5 + i * 5) * 1px;
-                                y: (24 - h) * 1px;
-                                width: 3.4px;
-                                height: h * 1px;
-                                border-radius: 1px;
-                                background: Tema.acento-texto;
-                            }
-                            Rectangle {
-                                x: 17px;
-                                y: 4px;
-                                width: 10px;
-                                height: 10px;
-                                border-radius: 5px;
-                                background: Tema.moneda;
-                                border-width: 1.2px;
-                                border-color: Tema.acento-texto;
-                            }
-                        }
-                        Text {
-                            text: "Sueldapp";
-                            color: Tema.texto;
-                            font-size: 18px;
-                            font-weight: 700;
-                            vertical-alignment: center;
-                        }
-                    }
-                    for n[i] in root.nombres: ItemMenu {
-                        texto: n;
-                        icono: root.iconos[i];
-                        atajo: "Alt " + (i + 1);
-                        actual: App.vista == root.vistas[i];
-                        activado => {
-                            App.navegar(root.vistas[i]);
-                        }
-                    }
-                    Rectangle {
-                        vertical-stretch: 1;
-                    }
-                    if App.alertas.length > 0 && App.alerta-boton: Boton {
-                        texto: App.alertas-texto;
-                        icono: Iconos.alerta;
-                        clicked => {
-                            App.alertas-abiertas = true;
-                        }
-                    }
-                    if App.demo: Rectangle {
-                        height: 34px;
-                        border-radius: Tema.radio-s;
-                        background: Tema.aviso-suave;
-                        Text {
-                            x: 10px;
-                            text: "Datos de demostración";
-                            color: Tema.aviso;
-                            font-weight: 600;
-                            font-size: 13px;
-                            vertical-alignment: center;
-                            height: parent.height;
-                        }
-                    }
+            padding: Disp.margen;
+            spacing: Disp.margen;
+            Menu {
+                width: Disp.ancho-menu;
+                compacto: Disp.compacto;
+                alternar => {
+                    root.alternar-menu();
                 }
+                animate width { duration: Tema.rapido; }
             }
             Rectangle {
                 horizontal-stretch: 1;
@@ -289,9 +415,60 @@ export component Ventana inherits Window {
             }
         }
 
+        if Disp.tip != "" && Disp.compacto && !Disp.menu-abierto: Rectangle {
+            x: Disp.margen + Disp.ancho-menu + 6px;
+            y: Disp.tip-y;
+            width: tip-texto.preferred-width + 20px;
+            height: 30px;
+            border-radius: 8px;
+            background: Tema.vidrio-fuerte;
+            border-width: 1px;
+            border-color: Tema.vidrio-borde;
+            drop-shadow-blur: 12px;
+            drop-shadow-color: Tema.sombra.transparentize(0.4);
+            tip-texto := Text {
+                text: Disp.tip;
+                color: Tema.texto;
+                font-size: 13px;
+                font-weight: 600;
+            }
+        }
+        if Disp.forzado && Disp.menu-abierto: Rectangle {
+            background: #0812145a;
+            TouchArea {
+                clicked => {
+                    Disp.menu-abierto = false;
+                }
+            }
+            FocusScope {
+                key-pressed(e) => {
+                    if e.text == Key.Escape {
+                        Disp.menu-abierto = false;
+                        return accept;
+                    }
+                    reject
+                }
+                init => {
+                    self.focus();
+                }
+            }
+            Menu {
+                x: Disp.margen;
+                y: Disp.margen;
+                width: min(248px, root.width - Disp.margen * 2);
+                height: root.height - Disp.margen * 2;
+                compacto: false;
+                alternar => {
+                    Disp.menu-abierto = false;
+                }
+                elegido => {
+                    Disp.menu-abierto = false;
+                }
+            }
+        }
         if App.vista == 0 && TableroD.editando && TableroD.arr-tipo < 0: Boton {
             width: self.preferred-width;
-            x: 266px + (root.width - 266px - self.width) / 2;
+            x: root.width - self.width - Disp.margen - 14px;
             y: root.height - self.height - 26px;
             primario: true;
             texto: "Añadir módulo";

@@ -1,4 +1,4 @@
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { ResumenD, App } from "../estado.slint";
 import { Vidrio, Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Segmentado, TablaGastos, Paginador, Chip, EstadoChip } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel, Heroe, TablaTexto } from "comun.slint";
@@ -7,43 +7,83 @@ export component PantallaResumen inherits VerticalLayout {
     spacing: 18px;
     Encabezado {
         titulo: "Resumen";
-        Segmentado {
-            etiqueta: "Ver por";
-            opciones: ["Mes", "Año"];
-            indice: ResumenD.modo;
-            cambiado(i) => {
-                ResumenD.cambiar-modo(i);
+        VerticalLayout {
+            spacing: 8px;
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                Segmentado {
+                    etiqueta: "Ver por";
+                    opciones: ["Mes", "Año"];
+                    indice: ResumenD.modo;
+                    cambiado(i) => {
+                        ResumenD.cambiar-modo(i);
+                    }
+                }
+                Boton {
+                    texto: "Hoy";
+                    clicked => {
+                        ResumenD.hoy();
+                    }
+                }
+                if !Disp.pequeno: HorizontalLayout {
+                    spacing: 8px;
+                    Boton {
+                        solo-icono: true;
+                        icono: Iconos.anterior;
+                        etiqueta-accesible: "Periodo anterior (Alt + flecha izquierda)";
+                        clicked => {
+                            ResumenD.mover(-1);
+                        }
+                    }
+                    Text {
+                        text: ResumenD.periodo;
+                        min-width: Disp.pequeno ? 90px : 150px;
+                        horizontal-stretch: 1;
+                        color: Tema.texto;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        accessible-role: text;
+                    }
+                    Boton {
+                        solo-icono: true;
+                        icono: Iconos.siguiente;
+                        etiqueta-accesible: "Periodo siguiente (Alt + flecha derecha)";
+                        clicked => {
+                            ResumenD.mover(1);
+                        }
+                    }
+                }
             }
-        }
-        Boton {
-            solo-icono: true;
-            icono: Iconos.anterior;
-            etiqueta-accesible: "Periodo anterior (Alt + flecha izquierda)";
-            clicked => {
-                ResumenD.mover(-1);
-            }
-        }
-        Text {
-            text: ResumenD.periodo;
-            min-width: 150px;
-            color: Tema.texto;
-            font-weight: 700;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            accessible-role: text;
-        }
-        Boton {
-            solo-icono: true;
-            icono: Iconos.siguiente;
-            etiqueta-accesible: "Periodo siguiente (Alt + flecha derecha)";
-            clicked => {
-                ResumenD.mover(1);
-            }
-        }
-        Boton {
-            texto: "Hoy";
-            clicked => {
-                ResumenD.hoy();
+            if Disp.pequeno: HorizontalLayout {
+                spacing: 8px;
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.anterior;
+                    etiqueta-accesible: "Periodo anterior (Alt + flecha izquierda)";
+                    clicked => {
+                        ResumenD.mover(-1);
+                    }
+                }
+                Text {
+                    text: ResumenD.periodo;
+                    min-width: Disp.pequeno ? 90px : 150px;
+                    horizontal-stretch: 1;
+                    color: Tema.texto;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    accessible-role: text;
+                }
+                Boton {
+                    solo-icono: true;
+                    icono: Iconos.siguiente;
+                    etiqueta-accesible: "Periodo siguiente (Alt + flecha derecha)";
+                    clicked => {
+                        ResumenD.mover(1);
+                    }
+                }
             }
         }
     }
@@ -113,6 +153,7 @@ export component PantallaResumen inherits VerticalLayout {
                 }
                 Boton {
                     texto: "Editar mes";
+                    solo-icono: Disp.pequeno;
                     icono: Iconos.lapiz;
                     clicked => {
                         ResumenD.editar-mes();
@@ -139,9 +180,11 @@ export component PantallaResumen inherits VerticalLayout {
                 }
             }
         }
-        if !App.vacia && ResumenD.modo == 0 && ResumenD.existe: HorizontalLayout {
-            spacing: 18px;
+        if !App.vacia && ResumenD.modo == 0 && ResumenD.existe: GridLayout {
+            spacing: Disp.separacion;
             Panel {
+                col: 0;
+                row: 0;
                 horizontal-stretch: 13;
                 HorizontalLayout {
                     Titulo {
@@ -172,11 +215,17 @@ export component PantallaResumen inherits VerticalLayout {
                                 font-weight: 600;
                                 overflow: elide;
                             }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                alignment: start;
-                                for e in g.etiquetas: Chip {
-                                    texto: e;
+                            Rectangle {
+                                height: 20px;
+                                clip: true;
+                                HorizontalLayout {
+                                    x: 0;
+                                    width: self.preferred-width;
+                                    spacing: 6px;
+                                    alignment: start;
+                                    for e in g.etiquetas: Chip {
+                                        texto: e;
+                                    }
                                 }
                             }
                         }
@@ -187,6 +236,7 @@ export component PantallaResumen inherits VerticalLayout {
                         }
                         Boton {
                             texto: "Marcar pagado";
+                            solo-icono: Disp.pequeno;
                             icono: Iconos.check;
                             etiqueta-accesible: "Marcar pagado: " + g.titulo;
                             clicked => {
@@ -211,6 +261,8 @@ export component PantallaResumen inherits VerticalLayout {
                 }
             }
             Panel {
+                col: Disp.medio ? 0 : 1;
+                row: Disp.medio ? 1 : 0;
                 horizontal-stretch: 10;
                 HorizontalLayout {
                     Titulo {

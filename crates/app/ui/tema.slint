@@ -1,6 +1,28 @@
 // Tokens de diseño: traducción directa de los de `estilos.css` de la versión web.
 import { Palette } from "std-widgets.slint";
 
+// Medidas que dependen de la ventana. Todas las pantallas se adaptan a partir de aquí.
+export global Disp {
+    in-out property <length> ventana: 1280px;
+    in-out property <length> alto: 840px;
+    // Preferencia guardada: menú solo con íconos.
+    in-out property <bool> menu-compacto;
+    // Con la ventana estrecha, el menú completo se abre encima del contenido.
+    in-out property <bool> menu-abierto;
+    in-out property <string> tip;
+    in-out property <length> tip-y;
+    out property <bool> forzado: ventana < 820px;
+    out property <bool> compacto: menu-compacto || forzado;
+    out property <length> margen: ventana < 600px ? 8px : 18px;
+    out property <length> ancho-menu: compacto ? 72px : 248px;
+    out property <length> contenido: ventana - ancho-menu - margen * 3;
+    out property <bool> medio: contenido < 920px;
+    out property <bool> pequeno: contenido < 620px;
+    // 0 ancha, 1 media, 2 pequeña.
+    out property <int> modo: pequeno ? 2 : medio ? 1 : 0;
+    out property <length> separacion: pequeno ? 10px : 18px;
+}
+
 export global Tema {
     // 0 = según el sistema, 1 = claro, 2 = oscuro.
     in-out property <int> modo: 0;

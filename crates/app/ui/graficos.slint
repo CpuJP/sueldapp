@@ -141,7 +141,8 @@ export component Grafico inherits Rectangle {
     }
 
     for b[i] in barras: Text {
-        visible: b.rotulo;
+        // Con poco ancho se muestran menos meses para que no se pisen.
+        visible: root.banda >= 42px ? b.rotulo : mod(i, max(1, ceil(42px / root.banda))) == 0;
         x: root.izq + root.banda * i - 20px;
         width: root.banda + 40px;
         y: root.arriba + root.alto + 10px;

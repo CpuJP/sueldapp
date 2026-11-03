@@ -85,6 +85,7 @@ fn main() -> Result<(), slint::PlatformError> {
     app.set_alerta_vencidos(a.alertas_vencidos);
     app.set_alerta_emergente(a.alertas_emergente);
     app.set_alerta_boton(a.alertas_boton);
+    ui.global::<Disp>().set_menu_compacto(a.menu_compacto);
     app.set_ruta_base(ruta.display().to_string().into());
 
     conectar(&ui, &est);
@@ -113,6 +114,7 @@ fn conectar(ui: &Ventana, est: &Est) {
     app.on_cerrar_aviso(cb!(ui, est, |u, e, id| notificaciones::quitar(u, e, id)));
     app.on_cambiar_tam(cb!(ui, est, |u, e, i| acciones::cambiar_tam(u, e, i)));
     app.on_ajustes_cambiados(con(ui, est, acciones::ajustes_cambiados));
+    app.on_disposicion_cambiada(con(ui, est, recargar));
     app.on_abrir_gasto(cb!(ui, est, |u, e, id| acciones::abrir_gasto(
         u,
         e,

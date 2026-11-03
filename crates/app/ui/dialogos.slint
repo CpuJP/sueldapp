@@ -1,4 +1,4 @@
-import { Tema } from "tema.slint";
+import { Tema, Disp } from "tema.slint";
 import { Form, Confirmar, App, ResumenD, TableroD } from "estado.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda, Chip, Separador, Iconos } from "componentes.slint";
@@ -44,13 +44,18 @@ export component Dialogo inherits Rectangle {
         }
         Vidrio {
             fuerte: true;
-            width: min(560px, root.width - 40px);
-            height: contenido.preferred-height;
+            width: min(560px, root.width - 24px);
+            // Si no cabe en la ventana, el formulario se desplaza por dentro.
+            height: min(contenido.preferred-height, root.height - 24px);
             x: (root.width - self.width) / 2;
-            y: max(20px, (root.height - self.height) / 2);
+            y: max(12px, (root.height - self.height) / 2);
             accessible-role: groupbox;
             accessible-label: Form.titulo;
+            ScrollView {
+                content-width: self.visible-width;
+                content-height: contenido.preferred-height;
             contenido := VerticalLayout {
+                width: parent.visible-width;
                 padding: 24px;
                 spacing: 14px;
                 Titulo {
@@ -387,6 +392,7 @@ export component Dialogo inherits Rectangle {
                     }
                 }
             }
+            }
         }
     }
 }
@@ -414,13 +420,17 @@ export component DialogoModulo inherits Rectangle {
         }
         Vidrio {
             fuerte: true;
-            width: min(520px, root.width - 40px);
-            height: c.preferred-height;
+            width: min(520px, root.width - 24px);
+            height: min(c.preferred-height, root.height - 24px);
             x: (root.width - self.width) / 2;
-            y: max(20px, (root.height - self.height) / 2);
+            y: max(12px, (root.height - self.height) / 2);
             accessible-role: groupbox;
             accessible-label: "Editar " + TableroD.editor.titulo;
+            ScrollView {
+                content-width: self.visible-width;
+                content-height: c.preferred-height;
             c := VerticalLayout {
+                width: parent.visible-width;
                 padding: 24px;
                 spacing: 14px;
                 Titulo {
@@ -521,6 +531,7 @@ export component DialogoModulo inherits Rectangle {
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -643,7 +654,12 @@ export component DialogoAlertas inherits Rectangle {
                                         color: Tema.texto;
                                         overflow: elide;
                                     }
+                                    Rectangle {
+                                        height: 20px;
+                                        clip: true;
                                     HorizontalLayout {
+                                        x: 0;
+                                        width: self.preferred-width;
                                         spacing: 6px;
                                         alignment: start;
                                         // Solo el vencimiento y la fecha: el resto no cabe en el diálogo.
@@ -652,6 +668,7 @@ export component DialogoAlertas inherits Rectangle {
                                             width: j < 2 ? self.preferred-width : 0px;
                                             texto: e;
                                         }
+                                    }
                                     }
                                     Text {
                                         text: g.monto;
@@ -662,6 +679,7 @@ export component DialogoAlertas inherits Rectangle {
                                     alignment: center;
                                     Boton {
                                         texto: "Marcar pagado";
+                                        solo-icono: root.width < 620px;
                                         icono: Iconos.check;
                                         clicked => {
                                             ResumenD.marcar-pagado(g.id);
@@ -672,6 +690,7 @@ export component DialogoAlertas inherits Rectangle {
                                     alignment: center;
                                     Boton {
                                         texto: "Editar";
+                                        solo-icono: root.width < 620px;
                                         icono: Iconos.lapiz;
                                         clicked => {
                                             App.alertas-abiertas = false;

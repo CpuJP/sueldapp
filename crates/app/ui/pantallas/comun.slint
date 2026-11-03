@@ -1,37 +1,48 @@
 import { ScrollView } from "std-widgets.slint";
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { Cifra, FilaTabla } from "../estado.slint";
 import { Vidrio, Etiqueta, Ayuda, Separador, EstadoChip } from "../componentes.slint";
 
 // Pantalla: barra de título fija con acciones (@children de la barra) y contenido desplazable.
 export component Encabezado inherits Vidrio {
     in property <string> titulo;
-    height: 64px;
-    HorizontalLayout {
-        padding-left: 22px;
+    min-height: 64px;
+    vertical-stretch: 0;
+    VerticalLayout {
+        padding-left: Disp.pequeno ? 14px : 22px;
         padding-right: 14px;
-        spacing: 10px;
-        Text {
+        padding-top: Disp.pequeno ? 10px : 0px;
+        if Disp.pequeno: Text {
             text: root.titulo;
             color: Tema.texto;
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 700;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
             accessible-role: text;
         }
         HorizontalLayout {
-            spacing: 8px;
-            alignment: end;
-            padding-top: 13px;
-            padding-bottom: 13px;
-            @children
+            spacing: 10px;
+            if !Disp.pequeno: Text {
+                text: root.titulo;
+                color: Tema.texto;
+                font-size: 22px;
+                font-weight: 700;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                accessible-role: text;
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: Disp.pequeno ? start : end;
+                padding-top: Disp.pequeno ? 8px : 13px;
+                padding-bottom: Disp.pequeno ? 10px : 13px;
+                @children
+            }
         }
     }
 }
 
 export component Desplazable inherits ScrollView {
-    in property <length> separacion: 18px;
+    in property <length> separacion: Disp.separacion;
     content-width: self.visible-width;
     content-height: contenido.preferred-height + 24px;
     contenido := VerticalLayout {
@@ -43,7 +54,7 @@ export component Desplazable inherits ScrollView {
 }
 
 export component Panel inherits Vidrio {
-    in property <length> relleno: 22px;
+    in property <length> relleno: Disp.pequeno ? 14px : 22px;
     VerticalLayout {
         padding: root.relleno;
         spacing: 10px;
@@ -55,26 +66,30 @@ export component Panel inherits Vidrio {
 export component Cifras inherits GridLayout {
     in property <[Cifra]> cifras;
     in property <int> columnas: 2;
+    // Ancho disponible: limita las columnas para que las cifras no se corten.
+    in property <length> ancho-disp: Disp.contenido;
+    property <int> cols: max(1, min(root.columnas, floor(root.ancho-disp / 190px)));
     spacing: 0px;
     for c[i] in cifras: Rectangle {
-        col: mod(i, root.columnas);
-        row: floor(i / root.columnas);
-        min-height: 72px;
+        col: mod(i, root.cols);
+        row: floor(i / root.cols);
+        // El alto sale del contenido: con una columna, las notas largas ocupan varias líneas.
+        height: max(72px, celda.preferred-height);
         Rectangle {
             x: 0;
             width: 1px;
             height: parent.height;
             background: Tema.borde-suave;
-            visible: mod(i, root.columnas) != 0 || root.columnas == 2;
+            visible: mod(i, root.cols) != 0;
         }
         Rectangle {
             y: 0;
             width: parent.width;
             height: 1px;
             background: Tema.borde-suave;
-            visible: i >= root.columnas;
+            visible: i >= root.cols;
         }
-        VerticalLayout {
+        celda := VerticalLayout {
             padding-left: 16px;
             padding-right: 12px;
             padding-top: 12px;
@@ -109,11 +124,16 @@ export component Heroe inherits Vidrio {
     in property <bool> negativo;
     in property <string> nota;
     in property <[Cifra]> cifras;
-    HorizontalLayout {
-        padding: 22px;
-        spacing: 28px;
+    in property <length> ancho-disp: Disp.contenido;
+    property <bool> apilar: root.ancho-disp < 720px;
+    property <length> relleno: Disp.pequeno ? 14px : 22px;
+    GridLayout {
+        padding: root.relleno;
+        spacing: root.apilar ? 14px : 28px;
         VerticalLayout {
-            width: 40%;
+            col: 0;
+            row: 0;
+            width: root.apilar ? root.width - root.relleno * 2 : root.width * 40%;
             alignment: center;
             spacing: 6px;
             Etiqueta {
@@ -122,7 +142,7 @@ export component Heroe inherits Vidrio {
             Text {
                 text: root.valor;
                 color: root.negativo ? Tema.negativo : Tema.texto;
-                font-size: 44px;
+                font-size: root.apilar ? 34px : 44px;
                 font-weight: 700;
                 letter-spacing: -0.9px;
                 wrap: word-wrap;
@@ -135,8 +155,11 @@ export component Heroe inherits Vidrio {
             @children
         }
         VerticalLayout {
+            col: root.apilar ? 0 : 1;
+            row: root.apilar ? 1 : 0;
             alignment: center;
             Cifras {
+                ancho-disp: root.apilar ? root.ancho-disp - root.relleno * 2 : root.ancho-disp * 55%;
                 cifras: root.cifras;
             }
         }
@@ -151,12 +174,21 @@ export component TablaTexto inherits VerticalLayout {
     in property <bool> activable;
     // La segunda columna muestra el distintivo de `estado` en vez de su texto.
     in property <bool> con-estado;
+    // Con muchas columnas en poco espacio, la tabla se desplaza de lado en vez de apretarse.
+    property <length> ancho: max(root.width, (root.encabezados.length + 1) * 118px);
+    property <length> columna: (root.ancho - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1);
+    Flickable {
+        height: tabla.preferred-height;
+        content-width: root.ancho;
+        content-height: self.height;
+        tabla := VerticalLayout {
+            width: root.ancho;
     HorizontalLayout {
         padding: 8px;
         spacing: 8px;
         for e[i] in root.encabezados: Etiqueta {
             text: e;
-            width: (root.width - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1) * (i == 0 ? 2 : 1);
+            width: root.columna * (i == 0 ? 2 : 1);
             horizontal-alignment: i == 0 ? left : right;
         }
     }
@@ -169,7 +201,7 @@ export component TablaTexto inherits VerticalLayout {
             padding-right: 8px;
             spacing: 8px;
             for c[i] in f.c: Rectangle {
-                width: (root.width - 16px - 8px * (root.encabezados.length - 1)) / (root.encabezados.length + 1) * (i == 0 ? 2 : 1);
+                width: root.columna * (i == 0 ? 2 : 1);
                 if root.con-estado && i == 1 && f.estado != "": EstadoChip {
                     x: parent.width - self.width;
                     y: (parent.height - self.height) / 2;
@@ -199,6 +231,8 @@ export component TablaTexto inherits VerticalLayout {
             clicked => {
                 root.fila-activada(j);
             }
+        }
+    }
         }
     }
 }

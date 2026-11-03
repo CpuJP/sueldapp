@@ -1,4 +1,4 @@
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { MesesD, App, FilaMes } from "../estado.slint";
 import { Boton, Iconos, Ayuda, Titulo, Progreso, Separador, Chip, EstadoChip } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel, Cifras } from "comun.slint";
@@ -15,10 +15,15 @@ component ListaMeses inherits VerticalLayout {
                 horizontal-stretch: 1;
                 alignment: center;
                 spacing: 4px;
+                if Disp.pequeno: Text {
+                    text: m.nombre;
+                    color: Tema.texto;
+                    font-weight: 600;
+                }
                 HorizontalLayout {
                     spacing: 8px;
                     alignment: start;
-                    Text {
+                    if !Disp.pequeno: Text {
                         text: m.nombre;
                         color: Tema.texto;
                         font-weight: 600;
@@ -38,11 +43,14 @@ component ListaMeses inherits VerticalLayout {
                 Ayuda {
                     text: m.pagado;
                 }
+                if Disp.pequeno && m.tipo != 1: Ayuda {
+                    text: "Falta por pagar: " + m.por-pagar;
+                }
                 Progreso {
                     valor: m.avance;
                 }
             }
-            if m.tipo != 1: VerticalLayout {
+            if m.tipo != 1 && !Disp.pequeno: VerticalLayout {
                 width: 150px;
                 alignment: center;
                 Ayuda {
@@ -60,6 +68,8 @@ component ListaMeses inherits VerticalLayout {
                 alignment: center;
                 Boton {
                     texto: "Marcar como hecho";
+                    solo-icono: Disp.pequeno;
+                    icono: Iconos.check;
                     primario: true;
                     clicked => {
                         MesesD.marcar-hecho(m.clave);

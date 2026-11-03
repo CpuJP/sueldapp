@@ -1,4 +1,4 @@
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { MovsD, App } from "../estado.slint";
 import { Boton, Iconos, Campo, Selector, TablaGastos, Paginador, Titulo, Ayuda } from "../componentes.slint";
 import { Encabezado, Desplazable, Panel } from "comun.slint";
@@ -34,109 +34,120 @@ export component PantallaMovimientos inherits VerticalLayout {
             accessible-label: "Filtros";
             GridLayout {
                 spacing: 10px;
-                Row {
-                    Filtro {
-                        colspan: 2;
-                        etiqueta: "Buscar";
-                        Campo {
-                            etiqueta: "Buscar por concepto o nota";
-                            icono: Iconos.buscar;
-                            marcador: "Concepto o nota";
-                            texto <=> MovsD.texto;
-                            editado => {
-                                MovsD.filtrar();
-                            }
-                        }
-                    }
-                    Filtro {
-                        col: 2;
-                        etiqueta: "Año";
-                        Selector {
-                            etiqueta: "Año";
-                            opciones: MovsD.o-anios;
-                            indice <=> MovsD.anio;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
-                        }
-                    }
-                    Filtro {
-                        etiqueta: "Mes";
-                        Selector {
-                            etiqueta: "Mes";
-                            opciones: MovsD.o-meses;
-                            indice <=> MovsD.mes;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
-                        }
-                    }
-                    Filtro {
-                        etiqueta: "Estado";
-                        Selector {
-                            etiqueta: "Estado";
-                            opciones: MovsD.o-estados;
-                            indice <=> MovsD.estado;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
-                        }
-                    }
-                    Filtro {
-                        etiqueta: "Pago";
-                        Selector {
-                            etiqueta: "Pago";
-                            opciones: MovsD.o-pagos;
-                            indice <=> MovsD.pago;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
+                Filtro {
+                    col: 0;
+                    row: 0;
+                    colspan: 2;
+                    etiqueta: "Buscar";
+                    Campo {
+                        etiqueta: "Buscar por concepto o nota";
+                        icono: Iconos.buscar;
+                        marcador: "Concepto o nota";
+                        texto <=> MovsD.texto;
+                        editado => {
+                            MovsD.filtrar();
                         }
                     }
                 }
-                Row {
-                    Filtro {
-                        colspan: 2;
+                Filtro {
+                    col: Disp.medio ? 0 : 2;
+                    row: Disp.medio ? 1 : 0;
+                    etiqueta: "Año";
+                    Selector {
+                        etiqueta: "Año";
+                        opciones: MovsD.o-anios;
+                        indice <=> MovsD.anio;
+                        cambiado => {
+                            MovsD.filtrar();
+                        }
+                    }
+                }
+                Filtro {
+                    col: Disp.medio ? 1 : 3;
+                    row: Disp.medio ? 1 : 0;
+                    etiqueta: "Mes";
+                    Selector {
+                        etiqueta: "Mes";
+                        opciones: MovsD.o-meses;
+                        indice <=> MovsD.mes;
+                        cambiado => {
+                            MovsD.filtrar();
+                        }
+                    }
+                }
+                Filtro {
+                    col: Disp.medio ? 0 : 4;
+                    row: Disp.medio ? 2 : 0;
+                    etiqueta: "Estado";
+                    Selector {
+                        etiqueta: "Estado";
+                        opciones: MovsD.o-estados;
+                        indice <=> MovsD.estado;
+                        cambiado => {
+                            MovsD.filtrar();
+                        }
+                    }
+                }
+                Filtro {
+                    col: Disp.medio ? 1 : 5;
+                    row: Disp.medio ? 2 : 0;
+                    etiqueta: "Pago";
+                    Selector {
+                        etiqueta: "Pago";
+                        opciones: MovsD.o-pagos;
+                        indice <=> MovsD.pago;
+                        cambiado => {
+                            MovsD.filtrar();
+                        }
+                    }
+                }
+                Filtro {
+                    col: 0;
+                    row: Disp.medio ? 3 : 1;
+                    etiqueta: "Categoría";
+                    Selector {
                         etiqueta: "Categoría";
-                        Selector {
-                            etiqueta: "Categoría";
-                            opciones: MovsD.o-categorias;
-                            indice <=> MovsD.categoria;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
+                        opciones: MovsD.o-categorias;
+                        indice <=> MovsD.categoria;
+                        cambiado => {
+                            MovsD.filtrar();
                         }
                     }
-                    Filtro {
-                        col: 2;
+                }
+                Filtro {
+                    col: Disp.medio ? 1 : 2;
+                    row: Disp.medio ? 3 : 1;
+                    etiqueta: "Deuda";
+                    Selector {
                         etiqueta: "Deuda";
-                        Selector {
-                            etiqueta: "Deuda";
-                            opciones: MovsD.o-deudas;
-                            indice <=> MovsD.deuda;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
+                        opciones: MovsD.o-deudas;
+                        indice <=> MovsD.deuda;
+                        cambiado => {
+                            MovsD.filtrar();
                         }
                     }
-                    Filtro {
+                }
+                Filtro {
+                    col: Disp.medio ? 0 : 3;
+                    row: Disp.medio ? 4 : 1;
+                    etiqueta: "Tarjeta";
+                    Selector {
                         etiqueta: "Tarjeta";
-                        Selector {
-                            etiqueta: "Tarjeta";
-                            opciones: MovsD.o-tarjetas;
-                            indice <=> MovsD.tarjeta;
-                            cambiado => {
-                                MovsD.filtrar();
-                            }
+                        opciones: MovsD.o-tarjetas;
+                        indice <=> MovsD.tarjeta;
+                        cambiado => {
+                            MovsD.filtrar();
                         }
                     }
-                    Filtro {
-                        etiqueta: " ";
-                        Boton {
-                            texto: "Limpiar filtros";
-                            clicked => {
-                                MovsD.limpiar();
-                            }
+                }
+                Filtro {
+                    col: Disp.medio ? 1 : 4;
+                    row: Disp.medio ? 4 : 1;
+                    etiqueta: " ";
+                    Boton {
+                        texto: "Limpiar filtros";
+                        clicked => {
+                            MovsD.limpiar();
                         }
                     }
                 }

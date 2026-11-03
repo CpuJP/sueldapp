@@ -75,6 +75,17 @@ impl Modulo {
         }
     }
 
+    /// Ancho según el espacio. `modo`: 0 ancha, 1 media (sin tercios), 2 pequeña (todo completo).
+    pub fn ancho_en(&self, modo: i32) -> u8 {
+        match modo {
+            0 => self.ancho_real(),
+            1 if self.tipo == HEROE || self.ancho == 8 => 12,
+            1 if self.ancho == 4 => 6,
+            1 => self.ancho,
+            _ => 12,
+        }
+    }
+
     /// Columnas de las cifras, limitadas por el ancho del módulo.
     pub fn columnas(&self) -> i32 {
         let pedidas = i32::from(self.vista) + 2;
@@ -233,11 +244,11 @@ impl ConfigTablero {
     }
 
     /// Reparte los módulos visibles en filas de hasta 12 doceavos.
-    pub fn filas(&self) -> Vec<Vec<&Modulo>> {
+    pub fn filas(&self, modo: i32) -> Vec<Vec<&Modulo>> {
         let mut filas: Vec<Vec<&Modulo>> = Vec::new();
         let mut usado = 0;
         for m in self.modulos.iter().filter(|m| m.visible) {
-            let a = m.ancho_real();
+            let a = m.ancho_en(modo);
             match filas.last_mut() {
                 Some(f) if usado + a <= 12 => f.push(m),
                 _ => {
@@ -271,7 +282,7 @@ mod tests {
     use super::*;
 
     fn tipos(c: &ConfigTablero) -> Vec<Vec<usize>> {
-        c.filas()
+        c.filas(0)
             .iter()
             .map(|f| f.iter().map(|m| m.tipo).collect())
             .collect()
@@ -364,12 +375,34 @@ mod tests {
     }
 
     #[test]
+    fn la_distribucion_se_adapta_al_espacio() {
+        let c = ConfigTablero::default();
+        let tipos_en = |modo| -> Vec<Vec<usize>> {
+            c.filas(modo)
+                .iter()
+                .map(|f| f.iter().map(|m| m.tipo).collect())
+                .collect()
+        };
+        // Media: los tercios pasan a mitades, sin perder ningún módulo.
+        let media = tipos_en(1);
+        assert!(media.contains(&vec![6, 7]));
+        assert!(media.contains(&vec![8, 9]));
+        assert_eq!(media.iter().flatten().count(), NOMBRES.len());
+        // Pequeña: una columna.
+        let pequena = tipos_en(2);
+        assert_eq!(pequena.len(), NOMBRES.len());
+        assert!(pequena.iter().all(|f| f.len() == 1));
+        // No cambia lo que eligió la persona.
+        assert_eq!(c.modulo(6).unwrap().ancho, 4);
+    }
+
+    #[test]
     fn filas_y_limites() {
         let mut c = ConfigTablero::default();
         for m in &mut c.modulos {
             m.visible = false;
         }
-        assert!(c.filas().is_empty());
+        assert!(c.filas(0).is_empty());
         for (tipo, ancho) in [(3, 8), (4, 6), (5, 6), (1, 4), (6, 12)] {
             let m = c.modulo_mut(tipo).unwrap();
             m.visible = true;

@@ -1,4 +1,4 @@
-import { Tema } from "../tema.slint";
+import { Tema, Disp } from "../tema.slint";
 import { TableroD, App, Linea, ModuloV } from "../estado.slint";
 import { Vidrio, Boton, Icono, Iconos, Etiqueta, Ayuda, Titulo, Progreso, Separador, Campo, Selector } from "../componentes.slint";
 import { Grafico, BarrasH } from "../graficos.slint";
@@ -15,8 +15,8 @@ component Calendario inherits Rectangle {
     property <int> a1: fin >= 0 ? max(inicio, fin) : (previa >= 0 ? max(inicio, previa) : inicio);
     property <[string]> cortos: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     property <[string]> largos: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-    width: 500px;
-    height: 420px;
+    width: min(500px, Disp.ventana - 24px);
+    height: min(420px, Disp.alto - 24px);
     border-radius: Tema.radio-l;
     background: Tema.oscuro ? #182124 : #f6f9f9;
     border-width: 1px;
@@ -29,7 +29,7 @@ component Calendario inherits Rectangle {
     accessible-label: "Elegir periodo";
     HorizontalLayout {
         Rectangle {
-            width: 190px;
+            width: Disp.ventana < 560px ? 118px : 190px;
             background: Tema.vidrio-hundido;
             VerticalLayout {
                 padding: 10px;
@@ -250,10 +250,12 @@ export component ListaLineas inherits VerticalLayout {
 
 component ContenidoModulo inherits VerticalLayout {
     in property <ModuloV> m;
+    in property <length> ancho-disp;
     property <bool> tabla-abierta: false;
     property <length> alto: root.m.alto * 1px;
     if root.m.tipo == 0: Heroe {
         vertical-stretch: 1;
+        ancho-disp: root.ancho-disp;
         etiqueta: TableroD.hero-etiqueta;
         valor: TableroD.hero-valor;
         negativo: TableroD.hero-negativo;
@@ -267,6 +269,7 @@ component ContenidoModulo inherits VerticalLayout {
         }
         Cifras {
             columnas: root.m.columnas;
+            ancho-disp: root.ancho-disp - 44px;
             cifras: TableroD.kpis;
         }
     }
@@ -292,6 +295,7 @@ component ContenidoModulo inherits VerticalLayout {
         }
         Cifras {
             columnas: root.m.columnas;
+            ancho-disp: root.ancho-disp - 44px;
             cifras: TableroD.meses-cifras;
         }
     }
@@ -358,7 +362,7 @@ component ContenidoModulo inherits VerticalLayout {
                 text: root.m.titulo;
                 horizontal-stretch: 1;
             }
-            Ayuda {
+            if !Disp.pequeno && root.ancho-disp > 520px: Ayuda {
                 text: "Suma de lo que sobra y falta, mes tras mes.";
                 horizontal-alignment: right;
             }
@@ -573,6 +577,9 @@ component EdicionModulo inherits Rectangle {
         }
     }
     asa-lado := Tirador {
+        // Con la ventana estrecha los módulos ya ocupan todo el ancho posible.
+        visible: !Disp.medio;
+        activo: !Disp.medio;
         // La barra de desplazamiento ocupa el borde derecho y se quedaría con el puntero.
         x: root.width - self.width - 16px;
         y: (root.height - self.height) / 2;
@@ -619,6 +626,7 @@ component ModuloTablero inherits Rectangle {
     in property <length> separacion;
     ContenidoModulo {
         m: root.m;
+        ancho-disp: root.width;
     }
     if TableroD.editando: EdicionModulo {
         x: 0;
@@ -632,12 +640,12 @@ component ModuloTablero inherits Rectangle {
 }
 
 export component PantallaTablero inherits VerticalLayout {
-    property <length> espacio: TableroD.espaciado == 0 ? 10px : TableroD.espaciado == 2 ? 28px : 18px;
+    property <length> espacio: Disp.pequeno ? 10px : TableroD.espaciado == 0 ? 10px : TableroD.espaciado == 2 ? 28px : 18px;
     property <length> doceavo: (root.width - 2px + root.espacio) / 12;
     spacing: 18px;
     Encabezado {
         titulo: "Tablero";
-        if TableroD.editando: Selector {
+        if TableroD.editando && !Disp.pequeno: Selector {
             width: 140px;
             height: 38px;
             etiqueta: "Espacio entre módulos";
@@ -647,7 +655,7 @@ export component PantallaTablero inherits VerticalLayout {
                 TableroD.cambiar-espaciado(i);
             }
         }
-        if TableroD.editando: Boton {
+        if TableroD.editando && !Disp.pequeno: Boton {
             texto: "Restablecer";
             clicked => {
                 TableroD.restablecer();
@@ -679,15 +687,18 @@ export component PantallaTablero inherits VerticalLayout {
     desplazable := Desplazable {
         separacion: root.espacio;
         filtros := Vidrio {
-            height: 72px;
-            HorizontalLayout {
-                padding-left: 18px;
-                padding-right: 18px;
-                spacing: 16px;
+            min-height: 72px;
+            GridLayout {
+                padding-left: Disp.pequeno ? 12px : 18px;
+                padding-right: Disp.pequeno ? 12px : 18px;
+                padding-top: Disp.pequeno ? 10px : 0px;
+                padding-bottom: Disp.pequeno ? 4px : 0px;
+                spacing: Disp.pequeno ? 4px : 16px;
                 boton-rango := Rectangle {
-                    width: 290px;
+                    col: 0;
+                    row: 0;
+                    width: min(290px, Disp.contenido - 24px);
                     height: 50px;
-                    y: (parent.height - self.height) / 2;
                     border-radius: Tema.radio-m;
                     background: tr.has-hover ? Tema.vidrio-fuerte : Tema.vidrio-hundido;
                     border-width: fr.has-focus ? 2px : 1px;
@@ -750,14 +761,19 @@ export component PantallaTablero inherits VerticalLayout {
                     }
                 }
                 Rectangle {
+                    col: 1;
+                    row: 0;
                     horizontal-stretch: 1;
                 }
                 HorizontalLayout {
+                    col: Disp.pequeno ? 0 : 2;
+                    row: Disp.pequeno ? 1 : 0;
+                    colspan: 1;
                     spacing: 8px;
-                    alignment: end;
-                    padding-top: 17px;
-                    padding-bottom: 17px;
-                    Etiqueta {
+                    alignment: Disp.pequeno ? start : end;
+                    padding-top: Disp.pequeno ? 6px : 17px;
+                    padding-bottom: Disp.pequeno ? 6px : 17px;
+                    if !Disp.pequeno: Etiqueta {
                         text: "AÑOS";
                         vertical-alignment: center;
                     }
@@ -772,7 +788,7 @@ export component PantallaTablero inherits VerticalLayout {
                 }
             }
             cal-popup := PopupWindow {
-                x: boton-rango.x;
+                x: Disp.pequeno ? 0px : boton-rango.x;
                 y: boton-rango.y + boton-rango.height + 10px;
                 close-policy: close-on-click-outside;
                 Calendario {
@@ -794,6 +810,23 @@ export component PantallaTablero inherits VerticalLayout {
             }
         }
 
+        if TableroD.editando && Disp.pequeno: HorizontalLayout {
+            spacing: 8px;
+            Selector {
+                etiqueta: "Espacio entre módulos";
+                opciones: ["Compacto", "Normal", "Amplio"];
+                indice: TableroD.espaciado;
+                cambiado(i) => {
+                    TableroD.cambiar-espaciado(i);
+                }
+            }
+            Boton {
+                texto: "Restablecer";
+                clicked => {
+                    TableroD.restablecer();
+                }
+            }
+        }
         if TableroD.editando: Ayuda {
             text: "Arrastra un módulo para cambiarlo de lugar y sus bordes para cambiar el tamaño. Pulsa − para quitarlo. Se guarda solo.";
             horizontal-alignment: center;

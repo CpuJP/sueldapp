@@ -151,7 +151,10 @@ pub fn cambiar_modulo(
 pub fn abrir_editor_modulo(ui: &Ventana, est: &Est, tipo: i32) {
     let g = ui.global::<crate::TableroD>();
     if let Some(m) = est.borrow().tablero.modulo(tipo.max(0) as usize) {
-        g.set_editor(p_tablero::vista_modulo(m));
+        g.set_editor(p_tablero::vista_modulo(
+            m,
+            ui.global::<crate::Disp>().get_modo(),
+        ));
         g.set_editor_abierto(true);
     }
 }
@@ -267,6 +270,7 @@ pub fn ajustes_cambiados(ui: &Ventana, est: &Est) {
         alertas_vencidos: app.get_alerta_vencidos(),
         alertas_emergente: app.get_alerta_emergente(),
         alertas_boton: app.get_alerta_boton(),
+        menu_compacto: ui.global::<crate::Disp>().get_menu_compacto(),
     });
     actualizar_alertas(ui, est);
 }

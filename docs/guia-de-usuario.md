@@ -169,6 +169,14 @@ Si el aviso tiene **Deshacer**, tienes unos segundos para revertir el cambio. La
 - **Reducir transparencia:** cambia el vidrio por superficies sólidas.
 - **Reducir movimiento:** quita las animaciones. La app no lee este ajuste del sistema: actívalo aquí.
 - **Tema:** Sistema (sigue tu configuración), Claro u Oscuro.
+- **Menú compacto:** el botón con la flecha junto al logo (o **Alt + M**) deja el menú solo con
+  íconos y lo devuelve a su forma normal; el nombre de cada sección aparece al pasar el puntero.
+  También se cambia en **Ajustes**. Con la ventana estrecha el menú se compacta solo y el botón lo
+  abre encima del contenido.
+- **Cualquier tamaño de ventana:** desde 360 × 420 puntos. Con poco ancho, los paneles se apilan,
+  los filtros pasan a dos columnas, las tablas anchas se desplazan de lado y los formularios largos
+  se desplazan por dentro. En el Tablero, los módulos de un tercio pasan a la mitad y, en ventanas
+  pequeñas, a una sola columna, sin cambiar lo que elegiste.
 - Atajos: **Alt + 1…9** cambia de sección y **Escape** cierra un diálogo. Todo se puede usar con
   el teclado (Tab y Enter).
 

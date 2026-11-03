@@ -5,7 +5,9 @@ use crate::estado::{clave, de_clave, hoy, hoy_iso, Estado, Rango};
 use crate::geometria::{f, rotulo, trazos, Escala};
 use crate::tablero_config::{clase, Clase, Modulo, ANCHOS};
 use crate::vistas::{self, GrupoVista, Monto};
-use crate::{BarraMes, FilaModulos, FilaTabla, Grupo, Linea, ModuloV, Preset, TableroD, Ventana};
+use crate::{
+    BarraMes, Disp, FilaModulos, FilaTabla, Grupo, Linea, ModuloV, Preset, TableroD, Ventana,
+};
 use rust_decimal::prelude::ToPrimitive;
 use slint::ComponentHandle;
 use sueldapp_almacen::repo;
@@ -60,13 +62,13 @@ fn primeros<T>(v: &[T], n: usize) -> &[T] {
     &v[..n.min(v.len())]
 }
 
-pub fn vista_modulo(m: &Modulo) -> ModuloV {
+pub fn vista_modulo(m: &Modulo, modo: i32) -> ModuloV {
     let clase_m = clase(m.tipo);
     ModuloV {
         tipo: m.tipo as i32,
         titulo: s(m.titulo()),
         titulo_propio: s(&m.titulo),
-        ancho: i32::from(m.ancho_real()),
+        ancho: i32::from(m.ancho_en(modo)),
         ancho_i: ANCHOS.iter().position(|a| *a == m.ancho).unwrap_or(3) as i32,
         tam: i32::from(m.tam),
         vista: i32::from(m.vista),
@@ -91,14 +93,15 @@ pub fn vista_modulo(m: &Modulo) -> ModuloV {
 fn configurar_modulos(ui: &Ventana, est: &Estado) {
     let g = ui.global::<TableroD>();
     let c = &est.tablero;
-    let vista = vista_modulo;
+    let modo = ui.global::<Disp>().get_modo();
+    let vista = |m: &Modulo| vista_modulo(m, modo);
     if g.get_editor_abierto() {
         if let Some(m) = c.modulo(g.get_editor().tipo.max(0) as usize) {
             g.set_editor(vista(m));
         }
     }
     g.set_filas(modelo(
-        c.filas()
+        c.filas(modo)
             .iter()
             .map(|f| FilaModulos {
                 modulos: modelo(f.iter().map(|m| vista(m)).collect()),

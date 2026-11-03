@@ -142,6 +142,7 @@ pub struct Ajustes {
     pub alertas_vencidos: bool,
     pub alertas_emergente: bool,
     pub alertas_boton: bool,
+    pub menu_compacto: bool,
 }
 
 fn ruta_ajustes() -> PathBuf {
@@ -159,6 +160,7 @@ pub fn leer_ajustes() -> Ajustes {
         alertas_vencidos: true,
         alertas_emergente: true,
         alertas_boton: true,
+        menu_compacto: false,
     };
     if let Ok(t) = std::fs::read_to_string(ruta_ajustes()) {
         for l in t.lines() {
@@ -173,6 +175,7 @@ pub fn leer_ajustes() -> Ajustes {
                     "alertas_vencidos" => a.alertas_vencidos = v.trim() != "0",
                     "alertas_emergente" => a.alertas_emergente = v.trim() != "0",
                     "alertas_boton" => a.alertas_boton = v.trim() != "0",
+                    "menu_compacto" => a.menu_compacto = v.trim() == "1",
                     _ => {}
                 }
             }
@@ -184,7 +187,7 @@ pub fn leer_ajustes() -> Ajustes {
 pub fn guardar_ajustes(a: &Ajustes) {
     let t = format!(
         "tema={}\nsolido={}\nsin_movimiento={}\ntam={}\nalertas_activas={}\nalertas_dias={}\n\
-         alertas_vencidos={}\nalertas_emergente={}\nalertas_boton={}\n",
+         alertas_vencidos={}\nalertas_emergente={}\nalertas_boton={}\nmenu_compacto={}\n",
         a.tema,
         u8::from(a.solido),
         u8::from(a.sin_movimiento),
@@ -193,7 +196,8 @@ pub fn guardar_ajustes(a: &Ajustes) {
         a.alertas_dias,
         u8::from(a.alertas_vencidos),
         u8::from(a.alertas_emergente),
-        u8::from(a.alertas_boton)
+        u8::from(a.alertas_boton),
+        u8::from(a.menu_compacto)
     );
     // Si no se puede escribir, los ajustes duran solo esta sesión.
     let _ = std::fs::write(ruta_ajustes(), t);
