@@ -75,3 +75,21 @@ fn v0_4_1_abre_una_base_de_la_0_4_0() {
     drop(c);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Crear una base nueva deja todas las migraciones aplicadas, y volver a abrirla no falla.
+#[test]
+fn v0_4_2_crea_y_reabre_una_base_nueva() {
+    let dir = std::env::temp_dir().join(format!("sueldapp-v042-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("base.sqlite3");
+    let _ = std::fs::remove_file(&ruta);
+    for _ in 0..2 {
+        let c = abrir(&ruta).unwrap();
+        let version: i64 = c
+            .query_row("PRAGMA user_version", [], |f| f.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
+        assert!(!repo::listar_estados(&c).unwrap().is_empty());
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
