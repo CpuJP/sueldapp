@@ -6,6 +6,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.5.0] - 2026-11-02
+
+### Añadido
+
+- Interfaz adaptable a cualquier tamaño de ventana, desde 360 × 420 puntos.
+- Menú lateral compacto, solo con íconos: botón, Alt + M y opción en Ajustes. Se compacta solo con la ventana estrecha.
+
 ## [0.4.2] - 2026-11-02
 
 ### Corregido
@@ -93,7 +100,8 @@ Primera versión alpha.
   navegación completa con teclado.
 - Instaladores para Linux (x64 y ARM64) y Windows (x64 y ARM64).
 
-[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.4.2...HEAD
+[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/CpuJP/sueldapp/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/CpuJP/sueldapp/compare/v0.4.0...v0.4.2
 [0.4.0]: https://github.com/CpuJP/sueldapp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CpuJP/sueldapp/compare/v0.2.0...v0.3.0

@@ -93,3 +93,33 @@ fn v0_4_2_crea_y_reabre_una_base_nueva() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// La 0.5.0 solo cambia la interfaz: una base de la 0.4.2 abre sin migraciones nuevas ni cambios.
+#[test]
+fn v0_5_0_no_cambia_el_esquema_de_la_0_4_2() {
+    let dir = std::env::temp_dir().join(format!("sueldapp-v050-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("base.sqlite3");
+    let _ = std::fs::remove_file(&ruta);
+    let esquema = |c: &rusqlite::Connection| -> Vec<String> {
+        let mut s = c
+            .prepare("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name")
+            .unwrap();
+        s.query_map([], |f| f.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    };
+    let antes = {
+        let c = abrir(&ruta).unwrap();
+        esquema(&c)
+    };
+    let c = abrir(&ruta).unwrap();
+    let version: i64 = c
+        .query_row("PRAGMA user_version", [], |f| f.get(0))
+        .unwrap();
+    assert_eq!(version, 2);
+    assert_eq!(esquema(&c), antes);
+    drop(c);
+    let _ = std::fs::remove_dir_all(&dir);
+}
