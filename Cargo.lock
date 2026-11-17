@@ -4474,7 +4474,7 @@ dependencies = [
 
 [[package]]
 name = "sueldapp"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "png",
@@ -4489,7 +4489,7 @@ dependencies = [
 
 [[package]]
 name = "sueldapp-almacen"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "rusqlite",
  "rust_decimal_macros",
@@ -4500,7 +4500,7 @@ dependencies = [
 
 [[package]]
 name = "sueldapp-dominio"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "rust_decimal",
  "rust_decimal_macros",
@@ -4510,7 +4510,7 @@ dependencies = [
 
 [[package]]
 name = "sueldapp-ods"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "quick-xml 0.42.0",
  "rusqlite",

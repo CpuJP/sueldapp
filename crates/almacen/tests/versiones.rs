@@ -155,3 +155,42 @@ fn v0_5_1_agrega_el_numero_de_cuotas_a_una_base_de_la_0_5_0() {
     drop(c);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// La 0.6.0 añade el plan de la deuda: una base de la 0.5.1 lo recibe vacío y lo puede guardar.
+#[test]
+fn v0_6_0_agrega_el_plan_a_una_base_de_la_0_5_1() {
+    let dir = std::env::temp_dir().join(format!("sueldapp-v060-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("base.sqlite3");
+    let _ = std::fs::remove_file(&ruta);
+    {
+        let c = rusqlite::Connection::open(&ruta).unwrap();
+        for sql in [
+            include_str!("../migraciones/0001_inicial.sql"),
+            include_str!("../migraciones/0002_fecha_pago.sql"),
+            include_str!("../migraciones/0003_cuotas_deuda.sql"),
+        ] {
+            c.execute_batch(sql).unwrap();
+        }
+        c.execute_batch(
+            "PRAGMA user_version = 3;
+             INSERT INTO deudas (id, nombre, total, cuotas) VALUES (1, 'Reloj', '1000000', 12);",
+        )
+        .unwrap();
+    }
+
+    let c = abrir(&ruta).unwrap();
+    let mut d = repo::deuda(&c, 1).unwrap();
+    assert_eq!(d.cuotas, Some(12));
+    assert_eq!((d.interes, d.interes_anual, d.primera), (None, false, None));
+    d.interes = Some(sueldapp_dominio::Decimal::from(2));
+    d.primera = Some((2026, 11));
+    repo::guardar_deuda(&c, &d).unwrap();
+    drop(c);
+    let c = abrir(&ruta).unwrap();
+    let d = repo::deuda(&c, 1).unwrap();
+    assert_eq!(d.primera, Some((2026, 11)));
+    assert_eq!(d.plan().len(), 12);
+    drop(c);
+    let _ = std::fs::remove_dir_all(&dir);
+}

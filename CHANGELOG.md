@@ -6,6 +6,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.6.0] - 2026-11-17
+
+**Mejor control de deudas:** cada deuda puede tener su plan completo de pagos. Indica el número
+de cuotas, el mes de la primera y el interés (mensual o efectivo anual), mira al momento la cuota,
+el total a pagar y los intereses, y crea de una vez las cuotas que faltan hasta terminarla.
+
+### Añadido
+
+- Primera cuota, interés mensual o efectivo anual y vista previa de la cuota y del total a pagar al crear o editar una deuda.
+- Cálculo de cuota fija (sistema francés); el pagado, lo pendiente y el progreso se miden contra el total a pagar.
+- Crear de una vez las cuotas que faltan, una por mes, sin tocar las ya registradas y con opción de deshacer.
+
+### Cambiado
+
+- Dependencias al día: rusqlite 0.42, zip 9.5 y rfd 0.18.
+
 ## [0.5.1] - 2026-11-17
 
 ### Añadido
@@ -112,7 +128,8 @@ Primera versión alpha.
   navegación completa con teclado.
 - Instaladores para Linux (x64 y ARM64) y Windows (x64 y ARM64).
 
-[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.5.1...HEAD
+[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/CpuJP/sueldapp/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/CpuJP/sueldapp/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/CpuJP/sueldapp/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/CpuJP/sueldapp/compare/v0.4.0...v0.4.2
