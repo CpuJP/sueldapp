@@ -123,3 +123,35 @@ fn v0_5_0_no_cambia_el_esquema_de_la_0_4_2() {
     drop(c);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// La 0.5.1 añade el número de cuotas: una base de la 0.5.0 lo recibe vacío y conserva sus deudas.
+#[test]
+fn v0_5_1_agrega_el_numero_de_cuotas_a_una_base_de_la_0_5_0() {
+    let dir = std::env::temp_dir().join(format!("sueldapp-v051-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let ruta = dir.join("base.sqlite3");
+    let _ = std::fs::remove_file(&ruta);
+    {
+        let c = rusqlite::Connection::open(&ruta).unwrap();
+        c.execute_batch(include_str!("../migraciones/0001_inicial.sql"))
+            .unwrap();
+        c.execute_batch(include_str!("../migraciones/0002_fecha_pago.sql"))
+            .unwrap();
+        c.execute_batch(
+            "PRAGMA user_version = 2;
+             INSERT INTO deudas (id, nombre, total) VALUES (1, 'Reloj', '1200');",
+        )
+        .unwrap();
+    }
+
+    let c = abrir(&ruta).unwrap();
+    let mut d = repo::deuda(&c, 1).unwrap();
+    assert_eq!((d.nombre.as_str(), d.cuotas), ("Reloj", None));
+    d.cuotas = Some(12);
+    repo::guardar_deuda(&c, &d).unwrap();
+    drop(c);
+    let c = abrir(&ruta).unwrap();
+    assert_eq!(repo::deuda(&c, 1).unwrap().cuotas, Some(12));
+    drop(c);
+    let _ = std::fs::remove_dir_all(&dir);
+}

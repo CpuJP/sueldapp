@@ -6,6 +6,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y e
 
 ## [Sin publicar]
 
+## [0.5.1] - 2026-11-17
+
+### Añadido
+
+- Número de cuotas opcional al crear o editar una deuda: cuenta las cuotas pagadas de cuántas y estima el fin.
+
+### Corregido
+
+- El botón de alertas del menú ya no se sale cuando hay pagos vencidos y próximos a la vez.
+- La prueba de humo ya no depende de la fecha de hoy.
+- Las casillas (deuda saldada, mes hecho, cuenta como pagado, no contar en los totales, volver a importar) se marcan y desmarcan pulsando la caja o su texto.
+
 ## [0.5.0] - 2026-11-02
 
 ### Añadido
@@ -100,7 +112,8 @@ Primera versión alpha.
   navegación completa con teclado.
 - Instaladores para Linux (x64 y ARM64) y Windows (x64 y ARM64).
 
-[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.5.0...HEAD
+[Sin publicar]: https://github.com/CpuJP/sueldapp/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/CpuJP/sueldapp/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/CpuJP/sueldapp/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/CpuJP/sueldapp/compare/v0.4.0...v0.4.2
 [0.4.0]: https://github.com/CpuJP/sueldapp/compare/v0.3.0...v0.4.0
