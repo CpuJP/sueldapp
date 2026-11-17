@@ -375,7 +375,10 @@ pub fn deudas(ui: &Ventana, est: &mut Estado) -> R {
                 progreso_texto: s(d
                     .progreso
                     .map(|p| format!("{} % pagado", p.to_string().replace('.', ",")))
-                    .unwrap_or_default()),
+                    .into_iter()
+                    .chain(d.plan_texto.clone())
+                    .collect::<Vec<_>>()
+                    .join(" · ")),
                 pagado: s(&d.pagado.texto),
                 total: s(d.total_texto.clone().unwrap_or_default()),
                 pendiente: s(pendiente),

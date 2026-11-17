@@ -33,6 +33,10 @@ fn texto_opc(d: Option<Decimal>) -> Option<String> {
     d.map(texto)
 }
 
+fn primera_texto(p: Option<(i32, u32)>) -> Option<String> {
+    p.map(|(a, m)| format!("{a:04}-{m:02}"))
+}
+
 /// Id a actualizar: el propio, o el del registro con el mismo origen.
 fn resolver_id(
     c: &Connection,
@@ -383,7 +387,8 @@ pub fn restaurar_ingreso(c: &Connection, i: &Ingreso) -> Resultado<Ingreso> {
 
 // ---------- Deudas ----------
 
-const COLS_DEUDA: &str = "id, nombre, total, ajuste, saldada, notas, origen, cuotas";
+const COLS_DEUDA: &str =
+    "id, nombre, total, ajuste, saldada, notas, origen, cuotas, interes, interes_anual, primera";
 
 fn fila_deuda(f: &Row) -> rusqlite::Result<Deuda> {
     Ok(Deuda {
@@ -395,6 +400,12 @@ fn fila_deuda(f: &Row) -> rusqlite::Result<Deuda> {
         notas: f.get(5)?,
         origen: f.get(6)?,
         cuotas: f.get(7)?,
+        interes: dec_opc(f, 8)?,
+        interes_anual: f.get(9)?,
+        primera: f.get::<_, Option<String>>(10)?.and_then(|p| {
+            let (a, m) = p.split_once('-')?;
+            Some((a.parse().ok()?, m.parse().ok()?))
+        }),
     })
 }
 
@@ -416,7 +427,7 @@ pub fn deuda(c: &Connection, id: i64) -> Resultado<Deuda> {
 
 fn insertar_deuda(c: &Connection, d: &Deuda, id: Option<i64>) -> Resultado<i64> {
     c.execute(
-        &format!("INSERT INTO deudas ({COLS_DEUDA}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"),
+        &format!("INSERT INTO deudas ({COLS_DEUDA}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)"),
         params![
             id,
             d.nombre.trim(),
@@ -425,7 +436,10 @@ fn insertar_deuda(c: &Connection, d: &Deuda, id: Option<i64>) -> Resultado<i64> 
             d.saldada,
             d.notas,
             d.origen,
-            d.cuotas
+            d.cuotas,
+            texto_opc(d.interes),
+            d.interes_anual,
+            primera_texto(d.primera)
         ],
     )?;
     Ok(c.last_insert_rowid())
@@ -435,14 +449,27 @@ pub fn guardar_deuda(c: &Connection, d: &Deuda) -> Resultado<Deuda> {
     d.validar()?;
     let id = match resolver_id(c, "deudas", d.id, &d.origen)? {
         Some(id) => {
-            // Reimportar por `origen` no trae el número de cuotas: no debe borrar el anotado.
-            let cuotas = match (d.id, d.cuotas) {
-                (None, None) => deuda(c, id)?.cuotas,
-                _ => d.cuotas,
+            // Reimportar por `origen` no trae el plan (cuotas, interés, primera): no debe borrar el anotado.
+            let previa = if d.id.is_none() {
+                Some(deuda(c, id)?)
+            } else {
+                None
+            };
+            let cuotas = match (&previa, d.cuotas) {
+                (Some(p), None) => p.cuotas,
+                (_, x) => x,
+            };
+            let interes = match (&previa, d.interes) {
+                (Some(p), None) => (p.interes, p.interes_anual),
+                (_, x) => (x, d.interes_anual),
+            };
+            let primera = match (&previa, d.primera) {
+                (Some(p), None) => p.primera,
+                (_, x) => x,
             };
             let n = c.execute(
                 "UPDATE deudas SET nombre=?1, total=?2, ajuste=?3, saldada=?4, notas=?5, origen=?6, \
-                 cuotas=?7 WHERE id=?8",
+                 cuotas=?7, interes=?9, interes_anual=?10, primera=?11 WHERE id=?8",
                 params![
                     d.nombre.trim(),
                     texto_opc(d.total),
@@ -451,7 +478,10 @@ pub fn guardar_deuda(c: &Connection, d: &Deuda) -> Resultado<Deuda> {
                     d.notas,
                     d.origen,
                     cuotas,
-                    id
+                    id,
+                    texto_opc(interes.0),
+                    interes.1,
+                    primera_texto(primera)
                 ],
             )?;
             exigir_cambio(n)?;
@@ -879,6 +909,47 @@ mod tests {
     }
 
     #[test]
+    fn plan_de_deuda_se_guarda_y_sobrevive_a_reimportar() {
+        let c = crate::abrir_memoria().unwrap();
+        let base = Deuda {
+            id: None,
+            nombre: "Reloj".into(),
+            total: Some(d("1019800")),
+            ajuste: d("0"),
+            saldada: false,
+            notas: String::new(),
+            origen: Some("Hoja!C3".into()),
+            cuotas: Some(12),
+            interes: Some(d("26.82")),
+            interes_anual: true,
+            primera: Some((2026, 11)),
+        };
+        let g = guardar_deuda(&c, &base).unwrap();
+        assert_eq!(
+            (g.interes, g.interes_anual, g.primera),
+            (Some(d("26.82")), true, Some((2026, 11)))
+        );
+        let r = guardar_deuda(
+            &c,
+            &Deuda {
+                cuotas: None,
+                interes: None,
+                interes_anual: false,
+                primera: None,
+                ..base.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            (r.cuotas, r.interes, r.interes_anual, r.primera),
+            (g.cuotas, g.interes, true, g.primera)
+        );
+        let mut e = r;
+        e.interes = Some(d("101"));
+        assert!(guardar_deuda(&c, &e).is_err());
+    }
+
+    #[test]
     fn numero_de_cuotas_se_guarda_y_sobrevive_a_reimportar() {
         let c = crate::abrir_memoria().unwrap();
         let base = Deuda {
@@ -890,6 +961,9 @@ mod tests {
             notas: String::new(),
             origen: Some("Hoja!B2".into()),
             cuotas: Some(12),
+            interes: None,
+            interes_anual: false,
+            primera: None,
         };
         let g = guardar_deuda(&c, &base).unwrap();
         assert_eq!(g.cuotas, Some(12));
@@ -1003,6 +1077,9 @@ mod tests {
                 notas: String::new(),
                 origen: None,
                 cuotas: None,
+                interes: None,
+                interes_anual: false,
+                primera: None,
             },
         )
         .unwrap();

@@ -107,6 +107,8 @@ fn main() -> Result<(), slint::PlatformError> {
 fn conectar(ui: &Ventana, est: &Est) {
     ui.global::<Util>()
         .on_formatear_monto(|t| mascara::formatear_entrada(&t).into());
+    ui.global::<Util>()
+        .on_plan_deuda(|t, n, i, anual| vistas::vista_previa_plan(&t, &n, &i, anual).into());
 
     let app = ui.global::<App>();
     app.on_navegar(cb!(ui, est, |u, e, i| acciones::navegar(u, e, i)));

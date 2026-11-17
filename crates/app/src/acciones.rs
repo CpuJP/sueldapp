@@ -480,6 +480,32 @@ pub fn abrir_deuda(ui: &Ventana, est: &Est, id: Option<i64>) {
             .map(|n| n.to_string())
             .unwrap_or_default()));
         f.set_b1(d.as_ref().is_some_and(|d| d.saldada));
+        // Primera cuota: la guardada o, si no, el mes de la primera cuota ya registrada.
+        let registrada = id.and_then(|id| {
+            vistas::listar_deudas(&e.c)
+                .ok()?
+                .into_iter()
+                .find(|x| x.deuda.id == Some(id))?
+                .cuotas
+                .iter()
+                .map(|g| repo::mes(&e.c, g.gasto.mes_id).map(|m| (m.anio, m.mes)))
+                .filter_map(Result::ok)
+                .min()
+        });
+        let primera = d.as_ref().and_then(|d| d.primera).or(registrada);
+        let mut meses = vec!["Sin definir".to_string()];
+        meses.extend(NOMBRES_MES.iter().map(|x| x.to_string()));
+        f.set_o2(textos(meses));
+        f.set_s2(primera.map_or(0, |p| p.1 as i32));
+        f.set_t6(s(primera.unwrap_or(e.resumen).0.to_string()));
+        f.set_t7(s(d
+            .as_ref()
+            .and_then(|d| d.interes)
+            .map(|i| i.normalize().to_string().replace('.', ","))
+            .unwrap_or_default()));
+        f.set_o3(textos(["Mensual", "Efectivo anual"]));
+        f.set_s3(i32::from(d.as_ref().is_some_and(|d| d.interes_anual)));
+        f.set_b2(true);
         e.form = Some(Formulario::Deuda { id });
         Ok(())
     })();
@@ -632,6 +658,8 @@ pub fn abrir_item(ui: &Ventana, est: &Est, tipo: i32, id: i64) {
 /// Guarda el formulario abierto. Devuelve el texto del aviso o el error para el formulario.
 pub fn guardar(ui: &Ventana, est: &Est) {
     let f = ui.global::<Form>();
+    // Cuotas creadas al guardar una deuda: el aviso permite deshacerlas.
+    let mut creadas: Vec<i64> = Vec::new();
     let r = (|| -> Result<String, String> {
         let e = est.borrow();
         match e.form.as_ref().ok_or("No hay formulario abierto.")? {
@@ -688,7 +716,7 @@ pub fn guardar(ui: &Ventana, est: &Est) {
                 Ok("Ingreso guardado.".into())
             }
             Formulario::Deuda { id } => {
-                vistas::guardar_deuda(
+                let (_, nuevas) = vistas::guardar_deuda(
                     &e.c,
                     DeudaEntrada {
                         id: *id,
@@ -698,9 +726,20 @@ pub fn guardar(ui: &Ventana, est: &Est) {
                         saldada: f.get_b1(),
                         notas: f.get_t4().to_string(),
                         cuotas: f.get_t5().to_string(),
+                        primera_mes: f.get_s2().clamp(0, 12) as u32,
+                        primera_anio: f.get_t6().to_string(),
+                        interes: f.get_t7().to_string(),
+                        interes_anual: f.get_s3() == 1,
+                        crear_cuotas: f.get_b2(),
                     },
                 )?;
-                Ok("Deuda guardada.".into())
+                let n = nuevas.len();
+                creadas = nuevas;
+                Ok(match n {
+                    0 => "Deuda guardada.".into(),
+                    1 => "Deuda guardada. Se creó 1 cuota.".into(),
+                    n => format!("Deuda guardada. Se crearon {n} cuotas."),
+                })
             }
             Formulario::Tarjeta { id } => {
                 let dia = |t: &str| -> Result<Option<u8>, String> {
@@ -761,7 +800,22 @@ pub fn guardar(ui: &Ventana, est: &Est) {
     match r {
         Ok(msg) => {
             cerrar_form(ui, est);
-            notificaciones::exito(ui, est, &msg);
+            if creadas.is_empty() {
+                notificaciones::exito(ui, est, &msg);
+            } else {
+                notificaciones::notificar(
+                    ui,
+                    est,
+                    Tipo::Exito,
+                    &msg,
+                    Some(Box::new(move |c: &_| {
+                        creadas
+                            .iter()
+                            .try_for_each(|id| repo::borrar_gasto(c, *id).map(|_| ()))
+                            .map_err(|x| x.to_string())
+                    })),
+                );
+            }
             recargar(ui, est);
         }
         Err(m) => f.set_error(s(m)),

@@ -36,6 +36,9 @@ fn base_con_datos() -> sueldapp_almacen::Connection {
             notas: "línea 1\nlínea 2".into(),
             origen: Some("Nómina!A8".into()),
             cuotas: Some(12),
+            interes: Some(d("2.1")),
+            interes_anual: false,
+            primera: Some((2026, 11)),
         },
     )
     .unwrap()
@@ -116,7 +119,9 @@ fn exportar_e_importar_conserva_todo() {
     assert!(repo::listar_deudas(&nueva)
         .unwrap()
         .iter()
-        .any(|d| d.cuotas == Some(12)));
+        .any(|d| d.cuotas == Some(12)
+            && d.interes == Some(rust_decimal::Decimal::new(21, 1))
+            && d.primera == Some((2026, 11))));
     assert_eq!(
         repo::todos_gastos(&nueva).unwrap(),
         repo::todos_gastos(&original).unwrap()

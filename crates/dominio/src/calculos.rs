@@ -1,7 +1,7 @@
 //! Reglas de cálculo de la hoja: totales del mes, del año, saldos de deudas y tarjetas.
 
 use crate::{Dinero, Gasto, Ingreso, Periodo, Tarjeta};
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, MathematicalOps};
 use serde::{Deserialize, Serialize};
 
 /// En qué punto está el pago de un mes.
@@ -219,6 +219,42 @@ pub fn saldo_deuda(
     }
 }
 
+/// Tasa mensual (fracción) a partir de un porcentaje mensual o efectivo anual.
+pub fn tasa_mensual(porcentaje: Dinero, anual: bool) -> Dinero {
+    let t = porcentaje / Decimal::ONE_HUNDRED;
+    if anual && !t.is_zero() {
+        (Decimal::ONE + t).powd(Decimal::ONE / Decimal::from(12)) - Decimal::ONE
+    } else {
+        t
+    }
+}
+
+/// Cuotas de un crédito de cuota fija (sistema francés). Cada cuota se redondea a centavos y la
+/// última salda lo que quede, así que la suma es exacta. Sin interés: partes iguales.
+pub fn plan_cuotas(total: Dinero, n: u32, tasa: Dinero) -> Vec<Dinero> {
+    if n == 0 || total <= Dinero::ZERO {
+        return Vec::new();
+    }
+    let cuota = if tasa.is_zero() {
+        redondear(total / Decimal::from(n))
+    } else {
+        let f = (Decimal::ONE + tasa).powi(i64::from(n));
+        redondear(total * tasa * f / (f - Decimal::ONE))
+    };
+    let mut saldo = total;
+    (1..=n)
+        .map(|k| {
+            let interes = redondear(saldo * tasa);
+            if k == n {
+                saldo + interes
+            } else {
+                saldo -= cuota - interes;
+                cuota
+            }
+        })
+        .collect()
+}
+
 /// Si faltan cuotas por registrar, la última llega `n − 1` meses después de la primera.
 fn fin_de_cuotas(cuotas: &[Cuota], num_cuotas: Option<u32>) -> Option<Periodo> {
     let ultima = cuotas.iter().map(|c| c.periodo).max();
@@ -430,6 +466,30 @@ mod tests {
         assert_eq!(s.progreso, Some(dec!(30.0)));
         assert_eq!((s.cuotas_pagadas, s.cuotas_registradas), (1, 2));
         assert_eq!(s.fin_estimado, Some((2026, 5)));
+    }
+
+    #[test]
+    fn plan_de_cuotas() {
+        use rust_decimal_macros::dec;
+        // Sin interés: partes iguales y la última ajusta los centavos.
+        let p = plan_cuotas(dec!(1019800), 12, Dinero::ZERO);
+        assert_eq!(p.len(), 12);
+        assert_eq!(p[0], dec!(84983.33));
+        assert_eq!(p[11], dec!(84983.37));
+        assert_eq!(p.iter().sum::<Dinero>(), dec!(1019800));
+        // 2 % mensual: cuota fija conocida; la última difiere en centavos.
+        let p = plan_cuotas(dec!(1000000), 12, dec!(0.02));
+        assert_eq!(p[0], dec!(94559.60));
+        assert!((p[11] - p[0]).abs() < dec!(1));
+        let total: Dinero = p.iter().sum();
+        assert!((total - dec!(1134715.2)).abs() < dec!(1), "{total}");
+        // Efectivo anual 26,82 % ≈ 2 % mensual; sin tasa, el porcentaje tal cual.
+        assert_eq!(tasa_mensual(dec!(26.82), true).round_dp(4), dec!(0.0200));
+        assert_eq!(tasa_mensual(dec!(2), false), dec!(0.02));
+        assert_eq!(tasa_mensual(Dinero::ZERO, true), Dinero::ZERO);
+        // Datos imposibles: sin plan.
+        assert!(plan_cuotas(dec!(100), 0, Dinero::ZERO).is_empty());
+        assert!(plan_cuotas(Dinero::ZERO, 3, Dinero::ZERO).is_empty());
     }
 
     #[test]

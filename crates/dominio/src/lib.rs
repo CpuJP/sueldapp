@@ -84,6 +84,11 @@ pub struct Deuda {
     pub origen: Option<String>,
     /// Número total de cuotas, si se conoce.
     pub cuotas: Option<u32>,
+    /// Interés en porcentaje (2,1 = 2,1 %); mensual o, con `interes_anual`, efectivo anual.
+    pub interes: Option<Dinero>,
+    pub interes_anual: bool,
+    /// Mes de la primera cuota.
+    pub primera: Option<Periodo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -172,7 +177,37 @@ impl Deuda {
         if self.cuotas == Some(0) {
             return Err(Invalido("El número de cuotas debe ser 1 o más.".into()));
         }
+        if let Some(i) = self.interes {
+            if i < Dinero::ZERO || i > Dinero::ONE_HUNDRED {
+                return Err(Invalido("El interés debe estar entre 0 y 100 %.".into()));
+            }
+        }
+        if let Some((a, m)) = self.primera {
+            if !(2000..=2100).contains(&a) || !(1..=12).contains(&m) {
+                return Err(Invalido("El mes de la primera cuota no es válido.".into()));
+            }
+        }
         Ok(())
+    }
+
+    /// Cuotas del plan: hace falta el total y el número de cuotas. Sin interés, partes iguales.
+    pub fn plan(&self) -> Vec<Dinero> {
+        match (self.total, self.cuotas) {
+            (Some(t), Some(n)) => calculos::plan_cuotas(
+                t,
+                n,
+                calculos::tasa_mensual(self.interes.unwrap_or_default(), self.interes_anual),
+            ),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Lo que se paga al final: con interés, la suma del plan; sin él, el total.
+    pub fn total_a_pagar(&self) -> Option<Dinero> {
+        match self.interes {
+            Some(i) if !i.is_zero() && !self.plan().is_empty() => Some(self.plan().iter().sum()),
+            _ => self.total,
+        }
     }
 }
 

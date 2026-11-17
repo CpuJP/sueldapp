@@ -38,6 +38,9 @@ pub fn sembrar(c: &Connection) -> Resultado<()> {
                 notas: String::new(),
                 origen: None,
                 cuotas: None,
+                interes: None,
+                interes_anual: false,
+                primera: None,
             },
         )
         .map(|x| x.id)

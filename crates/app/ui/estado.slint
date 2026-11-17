@@ -164,6 +164,8 @@ export struct LineaLog {
 
 export global Util {
     pure callback formatear-monto(string) -> string;
+    // Total, cuotas, interés y si es efectivo anual: cuota y total a pagar.
+    pure callback plan-deuda(string, string, string, bool) -> string;
 }
 
 export global App {
@@ -399,12 +401,15 @@ export global Form {
     in-out property <string> t3;
     in-out property <string> t4;
     in-out property <string> t5;
+    in-out property <string> t6;
+    in-out property <string> t7;
     in-out property <int> s1;
     in-out property <int> s2;
     in-out property <int> s3;
     in-out property <int> s4;
     in-out property <int> s5;
     in-out property <bool> b1;
+    in-out property <bool> b2;
     in property <[string]> o1;
     in property <[string]> o2;
     in property <[string]> o3;

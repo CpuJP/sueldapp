@@ -260,6 +260,12 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     tamano(&ui, 1280., 840.);
                     navegar(&ui, &est, 3);
                     crate::acciones::abrir_deuda(&ui, &est, None);
+                    let f = ui.global::<Form>();
+                    f.set_t1("Reloj".into());
+                    f.set_t2("1.019.800".into());
+                    f.set_t5("12".into());
+                    f.set_s2(11);
+                    f.set_t7("2,1".into());
                     *pendiente.borrow_mut() = Some("dialogo-deuda".to_string());
                 }
                 Some(Paso::PruebaCasillas) => {

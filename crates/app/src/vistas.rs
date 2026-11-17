@@ -761,7 +761,51 @@ pub struct DeudaVista {
     pub cuotas_pagadas: usize,
     pub cuotas_total: usize,
     pub fin_estimado: Option<String>,
+    /// "Cuota de $ … · Intereses $ …" cuando la deuda tiene interés.
+    pub plan_texto: Option<String>,
     pub cuotas: Vec<GastoVista>,
+}
+
+/// Resumen del plan para mostrar: cuota, total a pagar e intereses. Vacío sin plan.
+pub fn texto_plan(d: &Deuda) -> Option<String> {
+    let plan = d.plan();
+    let (total, a_pagar) = (d.total?, d.total_a_pagar()?);
+    let cuota = *plan.first()?;
+    Some(if a_pagar > total {
+        format!(
+            "Cuota de {} · Total a pagar {} · Intereses {}",
+            formatear(cuota),
+            formatear(a_pagar),
+            formatear(a_pagar - total)
+        )
+    } else {
+        format!("Cuota de {} · Sin intereses", formatear(cuota))
+    })
+}
+
+/// Porcentaje escrito por la persona: "2,1", "1.875" o "26,82".
+fn leer_porcentaje(texto: &str) -> R<Decimal> {
+    use std::str::FromStr;
+    Decimal::from_str(&texto.trim().replace(',', "."))
+        .map_err(|_| "Escribe el interés como un número, por ejemplo 2,1.".to_string())
+}
+
+/// Vista previa del formulario de deuda, a partir de lo que va escribiendo la persona.
+pub fn vista_previa_plan(total: &str, cuotas: &str, interes: &str, anual: bool) -> String {
+    let d = Deuda {
+        id: None,
+        nombre: String::new(),
+        total: leer_monto(total).ok(),
+        ajuste: Decimal::ZERO,
+        saldada: false,
+        notas: String::new(),
+        origen: None,
+        cuotas: cuotas.trim().parse().ok().filter(|n| *n > 0),
+        interes: leer_porcentaje(interes).ok(),
+        interes_anual: anual,
+        primera: None,
+    };
+    texto_plan(&d).unwrap_or_default()
 }
 
 pub fn listar_deudas(c: &Connection) -> R<Vec<DeudaVista>> {
@@ -783,9 +827,10 @@ pub fn listar_deudas(c: &Connection) -> R<Vec<DeudaVista>> {
                 periodo: ctx.periodo(g.mes_id),
             })
             .collect();
-        let s = saldo_deuda(d.total, d.ajuste, &cuotas, d.cuotas);
+        let s = saldo_deuda(d.total_a_pagar(), d.ajuste, &cuotas, d.cuotas);
         v.push(DeudaVista {
-            total_texto: d.total.map(formatear),
+            total_texto: d.total_a_pagar().map(formatear),
+            plan_texto: d.interes.filter(|i| !i.is_zero()).and(texto_plan(&d)),
             pagado: monto(s.pagado),
             pendiente: s.pendiente.map(monto),
             progreso: s.progreso,
@@ -815,30 +860,129 @@ pub struct DeudaEntrada {
     pub notas: String,
     /// Tal como la escribió el usuario; vacío si no se conoce.
     pub cuotas: String,
+    /// 1–12, o 0 si no se sabe.
+    pub primera_mes: u32,
+    pub primera_anio: String,
+    pub interes: String,
+    pub interes_anual: bool,
+    /// Crear las cuotas que falten desde la primera.
+    pub crear_cuotas: bool,
 }
 
-pub fn guardar_deuda(c: &Connection, deuda: DeudaEntrada) -> R<Deuda> {
+/// Guarda la deuda y, si se pide, crea las cuotas que falten. Devuelve los ids de las cuotas creadas.
+pub fn guardar_deuda(c: &Connection, deuda: DeudaEntrada) -> R<(Deuda, Vec<i64>)> {
+    let tx = c.unchecked_transaction().map_err(e)?;
+    let crear = deuda.crear_cuotas;
+    let d = guardar_solo_deuda(&tx, deuda)?;
+    let creadas = if crear {
+        crear_cuotas(&tx, &d)?
+    } else {
+        Vec::new()
+    };
+    tx.commit().map_err(e)?;
+    Ok((d, creadas))
+}
+
+/// Cuotas que faltan entre la primera y la última: una por mes, sin tocar los meses que ya tienen
+/// una cuota de esta deuda. El monto sale del plan o, sin total, de la cuota ya registrada.
+fn crear_cuotas(c: &Connection, d: &Deuda) -> R<Vec<i64>> {
+    let (Some(n), Some((a, m)), Some(id)) = (d.cuotas, d.primera, d.id) else {
+        return Ok(Vec::new());
+    };
+    let ctx = Contexto::cargar(c)?;
+    let propias: Vec<Gasto> = repo::todos_gastos(c)
+        .map_err(e)?
+        .into_iter()
+        .filter(|g| g.deuda_id == Some(id))
+        .collect();
+    let ocupados: HashSet<Periodo> = propias.iter().map(|g| ctx.periodo(g.mes_id)).collect();
+    let plan = d.plan();
+    let modelo = propias.first();
+    let estado = repo::id_estado(c, "Pendiente")
+        .ok()
+        .or_else(|| {
+            ctx.estados
+                .iter()
+                .find(|x| !x.cuenta_pagado)
+                .and_then(|x| x.id)
+        })
+        .ok_or("No hay un estado de pago pendiente. Revísalo en Catálogos.")?;
+    let mut creadas = Vec::new();
+    for k in 0..n {
+        let i = a * 12 + m as i32 - 1 + k as i32;
+        let periodo = (i.div_euclid(12), i.rem_euclid(12) as u32 + 1);
+        if ocupados.contains(&periodo) {
+            continue;
+        }
+        let monto = plan
+            .get(k as usize)
+            .copied()
+            .or(modelo.map(|g| g.monto))
+            .ok_or(
+                "Para crear las cuotas escribe el total de la deuda o registra la primera cuota.",
+            )?;
+        let g = repo::guardar_gasto(
+            c,
+            &Gasto {
+                id: None,
+                mes_id: mes_id(c, periodo.0, periodo.1)?,
+                concepto: format!("{} - Cuota {}", d.nombre.trim(), k + 1),
+                monto,
+                estado_id: estado,
+                categoria_id: modelo.and_then(|g| g.categoria_id),
+                deuda_id: Some(id),
+                tarjeta_id: None,
+                desglose: None,
+                nota: String::new(),
+                fuera_de_bloque: false,
+                orden: i64::MAX / 2,
+                origen: None,
+                fecha_pago: None,
+            },
+        )
+        .map_err(e)?;
+        creadas.extend(g.id);
+    }
+    Ok(creadas)
+}
+
+fn guardar_solo_deuda(c: &Connection, deuda: DeudaEntrada) -> R<Deuda> {
     let previo = deuda
         .id
         .map(|id| repo::deuda(c, id))
         .transpose()
         .map_err(e)?;
-    let d = Deuda {
-        id: deuda.id,
-        nombre: deuda.nombre,
-        total: monto_opcional(&deuda.total)?,
-        ajuste: monto_opcional(&deuda.ajuste)?.unwrap_or_default(),
-        saldada: deuda.saldada,
-        notas: deuda.notas,
-        origen: previo.and_then(|p| p.origen),
-        cuotas: match deuda.cuotas.trim() {
-            "" => None,
-            t => Some(
-                t.parse()
-                    .map_err(|_| "El número de cuotas debe ser un número entero, como 12.")?,
-            ),
-        },
-    };
+    let d =
+        Deuda {
+            id: deuda.id,
+            nombre: deuda.nombre,
+            total: monto_opcional(&deuda.total)?,
+            ajuste: monto_opcional(&deuda.ajuste)?.unwrap_or_default(),
+            saldada: deuda.saldada,
+            notas: deuda.notas,
+            origen: previo.and_then(|p| p.origen),
+            cuotas: match deuda.cuotas.trim() {
+                "" => None,
+                t => Some(
+                    t.parse()
+                        .map_err(|_| "El número de cuotas debe ser un número entero, como 12.")?,
+                ),
+            },
+            interes: match deuda.interes.trim() {
+                "" => None,
+                t => Some(leer_porcentaje(t)?),
+            },
+            interes_anual: deuda.interes_anual,
+            primera: match deuda.primera_mes {
+                0 => None,
+                m => Some((
+                    deuda.primera_anio.trim().parse().map_err(|_| {
+                        "El año de la primera cuota debe ser un número de 4 cifras."
+                    })?,
+                    m,
+                )),
+            },
+        };
     repo::guardar_deuda(c, &d).map_err(e)
 }
 
@@ -1170,7 +1314,7 @@ pub fn tablero(c: &Connection, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
                 periodo: ctx.periodo(g.mes_id),
             })
             .collect();
-        let s = saldo_deuda(d.total, d.ajuste, &cuotas, d.cuotas);
+        let s = saldo_deuda(d.total_a_pagar(), d.ajuste, &cuotas, d.cuotas);
         pagada += s.pagado;
         if let Some(p) = s.pendiente.filter(|p| p.is_sign_positive() && !p.is_zero()) {
             pendiente += p;
@@ -1495,6 +1639,72 @@ mod tests {
     }
 
     #[test]
+    fn crea_las_cuotas_que_faltan_con_interes() {
+        let c = abrir_memoria().unwrap();
+        let entrada = |id, crear| DeudaEntrada {
+            id,
+            nombre: "Reloj".into(),
+            total: Some("1.000.000".into()),
+            ajuste: None,
+            saldada: false,
+            notas: String::new(),
+            cuotas: "12".into(),
+            primera_mes: 11,
+            primera_anio: "2026".into(),
+            interes: "2".into(),
+            interes_anual: false,
+            crear_cuotas: crear,
+        };
+        let (d, creadas) = guardar_deuda(&c, entrada(None, false)).unwrap();
+        assert!(creadas.is_empty());
+        // La primera cuota ya la registró la persona, con otro monto: se respeta.
+        let mut primera = gasto(&c, "Reloj - Cuota 1", "100.000", 11, d.id).gasto;
+        primera.categoria_id = repo::listar_items(&c, Catalogo::Categorias)
+            .unwrap()
+            .first()
+            .and_then(|x| x.id);
+        repo::guardar_gasto(&c, &primera).unwrap();
+
+        let (d, creadas) = guardar_deuda(&c, entrada(d.id, true)).unwrap();
+        assert_eq!(creadas.len(), 11);
+        let cuotas: Vec<Gasto> = repo::todos_gastos(&c)
+            .unwrap()
+            .into_iter()
+            .filter(|g| g.deuda_id == d.id)
+            .collect();
+        assert_eq!(cuotas.len(), 12);
+        let segunda = cuotas
+            .iter()
+            .find(|g| g.concepto == "Reloj - Cuota 2")
+            .unwrap();
+        assert_eq!(segunda.monto, Decimal::new(9_455_960, 2));
+        assert_eq!(segunda.categoria_id, primera.categoria_id);
+        let ultima = cuotas
+            .iter()
+            .find(|g| g.concepto == "Reloj - Cuota 12")
+            .unwrap();
+        assert_eq!(repo::mes(&c, ultima.mes_id).unwrap().mes, 10);
+        // Volver a guardar no duplica nada.
+        assert!(guardar_deuda(&c, entrada(d.id, true)).unwrap().1.is_empty());
+        // Lo que se paga al final incluye los intereses.
+        let v = listar_deudas(&c).unwrap();
+        let t = v[0].total_texto.clone().unwrap();
+        assert!(t.starts_with("$ 1.134."), "{t}");
+        assert!(v[0].plan_texto.clone().unwrap().contains("Intereses"));
+        assert_eq!(
+            vista_previa_plan("1.000.000", "12", "26,82", true)
+                .split(" · ")
+                .next()
+                .unwrap(),
+            "Cuota de $ 94.557,97"
+        );
+        // El interés admite más de dos decimales y coma o punto.
+        assert_eq!(leer_porcentaje(" 1,875 ").unwrap(), Decimal::new(1875, 3));
+        assert!(leer_porcentaje("dos").is_err());
+        assert_eq!(vista_previa_plan("", "12", "2", false), "");
+    }
+
+    #[test]
     fn deudas_y_tablero() {
         let c = abrir_memoria().unwrap();
         let d = guardar_deuda(
@@ -1507,9 +1717,15 @@ mod tests {
                 saldada: false,
                 notas: String::new(),
                 cuotas: "12".into(),
+                primera_mes: 0,
+                primera_anio: String::new(),
+                interes: String::new(),
+                interes_anual: false,
+                crear_cuotas: false,
             },
         )
-        .unwrap();
+        .unwrap()
+        .0;
         let g = gasto(&c, "Portátil – Cuota 1", "250.000", 9, d.id);
         let mut pagada = sueldapp_almacen::repo::gasto(&c, g.gasto.id.unwrap()).unwrap();
         pagada.estado_id = 1;

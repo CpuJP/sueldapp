@@ -529,6 +529,9 @@ fn importar_original(
                 notas,
                 origen: Some(o(d.fila, 0)),
                 cuotas: None,
+                interes: None,
+                interes_anual: false,
+                primera: None,
             },
         )?;
         let detalle = if sin_formula {

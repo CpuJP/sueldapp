@@ -164,7 +164,17 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
         Tabla {
             nombre: "Deudas",
             encabezados: vec![
-                "id", "nombre", "total", "ajuste", "saldada", "notas", "origen", "cuotas",
+                "id",
+                "nombre",
+                "total",
+                "ajuste",
+                "saldada",
+                "notas",
+                "origen",
+                "cuotas",
+                "interes",
+                "interes_anual",
+                "primera",
             ],
             filas: deudas
                 .iter()
@@ -177,7 +187,10 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
                         d.saldada,
                         d.notas.clone(),
                         d.origen.clone(),
-                        d.cuotas.map(i64::from)
+                        d.cuotas.map(i64::from),
+                        d.interes,
+                        d.interes_anual,
+                        d.primera.map(|(a, m)| format!("{a:04}-{m:02}"))
                     ]
                 })
                 .collect(),
@@ -522,6 +535,12 @@ pub fn restaurar(c: &Connection, hojas: &[Hoja], inf: &mut Informe) -> Result<()
                     u32::try_from(n).map_err(|_| Error::Formato(format!("cuotas inválidas: {n}")))
                 })
                 .transpose()?,
+            interes: f.dec("interes")?,
+            interes_anual: f.bool("interes_anual")?,
+            primera: f.txt_opc("primera").and_then(|p| {
+                let (a, m) = p.split_once('-')?;
+                Some((a.parse().ok()?, m.parse().ok()?))
+            }),
         };
         repo::restaurar_deuda(c, &d, &[])?;
         log(format!("Deudas!{}", d.nombre), "deuda".into());

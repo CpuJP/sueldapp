@@ -107,6 +107,12 @@ que terminas.
 - **Número de cuotas:** si lo sabes, escríbelo al crear o editar la deuda. Así se muestra
   "Cuotas pagadas: 3 de 12" y el fin estimado se calcula contando desde la primera cuota, aunque
   aún no hayas registrado las demás. Déjalo vacío si no lo sabes.
+- **Primera cuota e interés:** elige el mes y el año de la primera cuota y, si tiene, el interés en
+  porcentaje, mensual o efectivo anual. El formulario muestra al momento la cuota, el total a pagar
+  y los intereses (cuota fija, la última ajusta los centavos). Con **Crear las cuotas que faltan**,
+  al guardar se crea una cuota pendiente por mes desde la primera hasta la última; los meses que ya
+  tienen una cuota de esa deuda no se tocan, y el aviso permite **Deshacer**. Con interés, el
+  pagado y lo pendiente se comparan con el total a pagar.
 - **Pagos cercanos:** los pagos pendientes con fecha de pago vencida o a 7 días o menos (se cambia en **Ajustes**) aparecen en
   un botón del menú lateral, con un aviso al abrir la app y cuando aparece uno nuevo. Desde ahí
   puedes marcarlos como pagados o editarlos. La app solo avisa mientras está abierta; los gastos con

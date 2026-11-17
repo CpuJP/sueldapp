@@ -1,5 +1,5 @@
 import { Tema, Disp } from "tema.slint";
-import { Form, Confirmar, App, ResumenD, TableroD } from "estado.slint";
+import { Form, Confirmar, App, ResumenD, TableroD, Util } from "estado.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Vidrio, Boton, Campo, Selector, Casilla, Titulo, Ayuda, Chip, Separador, Iconos } from "componentes.slint";
 
@@ -268,14 +268,72 @@ export component Dialogo inherits Rectangle {
                             }
                         }
                     }
-                    Campos {
-                        etiqueta: "Número de cuotas";
-                        ayuda: "Déjalo vacío si no lo sabes. Con él se calculan las cuotas pagadas de cuántas y el fin estimado.";
-                        Campo {
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
                             etiqueta: "Número de cuotas";
-                            marcador: "Por ejemplo, 12";
-                            texto <=> Form.t5;
+                            ayuda: "Déjalo vacío si no lo sabes.";
+                            Campo {
+                                etiqueta: "Número de cuotas";
+                                marcador: "Por ejemplo, 12";
+                                texto <=> Form.t5;
+                            }
                         }
+                        Campos {
+                            etiqueta: "Primera cuota";
+                            Selector {
+                                etiqueta: "Mes de la primera cuota";
+                                opciones: Form.o2;
+                                indice <=> Form.s2;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Año";
+                            Campo {
+                                etiqueta: "Año de la primera cuota";
+                                texto <=> Form.t6;
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 14px;
+                        Campos {
+                            etiqueta: "Interés (%)";
+                            ayuda: "Vacío o 0 si no tiene.";
+                            Campo {
+                                etiqueta: "Interés en porcentaje";
+                                marcador: "Por ejemplo, 2,1";
+                                texto <=> Form.t7;
+                            }
+                        }
+                        Campos {
+                            etiqueta: "Tipo de interés";
+                            Selector {
+                                etiqueta: "Tipo de interés";
+                                opciones: Form.o3;
+                                indice <=> Form.s3;
+                            }
+                        }
+                    }
+                    if Util.plan-deuda(Form.t2, Form.t5, Form.t7, Form.s3 == 1) != "": Rectangle {
+                        border-radius: Tema.radio-s;
+                        background: Tema.acento-suave;
+                        VerticalLayout {
+                            padding: 10px;
+                            padding-left: 12px;
+                            padding-right: 12px;
+                        Text {
+                            text: Util.plan-deuda(Form.t2, Form.t5, Form.t7, Form.s3 == 1);
+                            color: Tema.texto;
+                            font-weight: 600;
+                            wrap: word-wrap;
+                            accessible-role: text;
+                        }
+                        }
+                    }
+                    if Form.t5 != "" && Form.s2 > 0: Casilla {
+                        texto: "Crear las cuotas que faltan, una por mes desde la primera";
+                        marcada <=> Form.b2;
                     }
                     Campos {
                         etiqueta: "Notas";

@@ -9,7 +9,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-rust_decimal = { version = "1.43.0", features = ["serde-str"] }
+rust_decimal = { version = "1.43.0", features = ["serde-str", "maths"] }
 serde = { version = "1.0.229", features = ["derive"] }
 unicode-normalization = "0.1.26"
 
