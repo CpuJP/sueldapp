@@ -140,7 +140,7 @@ pub fn conciliar(
                 periodo: periodos.get(&g.mes_id).copied().unwrap_or((0, 0)),
             })
             .collect();
-        let s = saldo_deuda(deuda.total, deuda.ajuste, &cuotas);
+        let s = saldo_deuda(deuda.total, deuda.ajuste, &cuotas, deuda.cuotas);
         let nombre = &d.nombre;
         r.comparar(
             format!("Pago deuda {nombre}"),

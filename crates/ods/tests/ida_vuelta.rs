@@ -35,6 +35,7 @@ fn base_con_datos() -> sueldapp_almacen::Connection {
             saldada: false,
             notas: "línea 1\nlínea 2".into(),
             origen: Some("Nómina!A8".into()),
+            cuotas: Some(12),
         },
     )
     .unwrap()
@@ -112,6 +113,10 @@ fn exportar_e_importar_conserva_todo() {
         .unwrap()
         .iter()
         .any(|g| g.fecha_pago.as_deref() == Some("2026-11-23")));
+    assert!(repo::listar_deudas(&nueva)
+        .unwrap()
+        .iter()
+        .any(|d| d.cuotas == Some(12)));
     assert_eq!(
         repo::todos_gastos(&nueva).unwrap(),
         repo::todos_gastos(&original).unwrap()

@@ -10,6 +10,7 @@ use std::path::Path;
 const MIGRACIONES: &[&str] = &[
     include_str!("../migraciones/0001_inicial.sql"),
     include_str!("../migraciones/0002_fecha_pago.sql"),
+    include_str!("../migraciones/0003_cuotas_deuda.sql"),
 ];
 
 #[derive(Debug, thiserror::Error)]

@@ -379,7 +379,7 @@ pub fn deudas(ui: &Ventana, est: &mut Estado) -> R {
                 pagado: s(&d.pagado.texto),
                 total: s(d.total_texto.clone().unwrap_or_default()),
                 pendiente: s(pendiente),
-                cuotas: s(format!("{} de {}", d.cuotas_pagadas, d.cuotas_registradas)),
+                cuotas: s(format!("{} de {}", d.cuotas_pagadas, d.cuotas_total)),
                 fin: s(d.fin_estimado.clone().unwrap_or("—".into())),
                 abierta,
                 num: d.cuotas.len() as i32,

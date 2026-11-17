@@ -104,6 +104,9 @@ que terminas.
   ejemplo 23/11/2026). Aparece junto a la cuota en la deuda. Crea cada cuota en su mes para
   programar pagos futuros.
 - Si pagaste de más, la app lo muestra como "Pagado de más".
+- **Número de cuotas:** si lo sabes, escríbelo al crear o editar la deuda. Así se muestra
+  "Cuotas pagadas: 3 de 12" y el fin estimado se calcula contando desde la primera cuota, aunque
+  aún no hayas registrado las demás. Déjalo vacío si no lo sabes.
 - **Pagos cercanos:** los pagos pendientes con fecha de pago vencida o a 7 días o menos (se cambia en **Ajustes**) aparecen en
   un botón del menú lateral, con un aviso al abrir la app y cuando aparece uno nuevo. Desde ahí
   puedes marcarlos como pagados o editarlos. La app solo avisa mientras está abierta; los gastos con

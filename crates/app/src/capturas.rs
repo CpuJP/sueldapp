@@ -31,6 +31,8 @@ enum Paso {
     Tamano(f32, f32, i32, String),
     /// Formularios en la ventana más pequeña.
     DialogoMovil,
+    DialogoDeuda,
+    PruebaCasillas,
     AlertasMovil,
     PruebaMenu,
     Arrastre,
@@ -117,7 +119,12 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
             ));
         }
     }
-    pasos.extend([Paso::DialogoMovil, Paso::AlertasMovil]);
+    pasos.extend([
+        Paso::DialogoMovil,
+        Paso::AlertasMovil,
+        Paso::DialogoDeuda,
+        Paso::PruebaCasillas,
+    ]);
     pasos.push(Paso::Cerrar);
     pasos.reverse();
 
@@ -249,6 +256,18 @@ pub fn iniciar(ui: &Ventana, est: &Est, carpeta: PathBuf) {
                     abrir_gasto(&ui, &est, id, None, None);
                     *pendiente.borrow_mut() = Some("adaptar-movil-dialogo".to_string());
                 }
+                Some(Paso::DialogoDeuda) => {
+                    tamano(&ui, 1280., 840.);
+                    navegar(&ui, &est, 3);
+                    crate::acciones::abrir_deuda(&ui, &est, None);
+                    *pendiente.borrow_mut() = Some("dialogo-deuda".to_string());
+                }
+                Some(Paso::PruebaCasillas) => {
+                    if let Err(e) = probar_casillas(&ui, &est) {
+                        eprintln!("casillas: {e}");
+                        let _ = std::fs::write(carpeta.join("prueba-casillas-fallo.txt"), &e);
+                    }
+                }
                 Some(Paso::AlertasMovil) => {
                     tamano(&ui, 360., 640.);
                     navegar(&ui, &est, 1);
@@ -327,6 +346,58 @@ fn tamano(ui: &Ventana, w: f32, h: f32) {
     // `changed width` corre en el siguiente ciclo de eventos; la prueba lo necesita ya.
     ui.global::<crate::Disp>().set_ventana(w);
     ui.global::<crate::Disp>().set_alto(h);
+}
+
+/// Marca y desmarca con clics reales cada casilla: sobre la caja y sobre su texto.
+fn probar_casillas(ui: &Ventana, est: &Est) -> Result<(), String> {
+    let f = ui.global::<Form>();
+    let clic = |x: f32, y: f32| {
+        pulsar(ui, x, y);
+        soltar(ui, x, y);
+    };
+    // Busca la fila de la casilla de abajo hacia arriba, para no pulsar antes otros campos.
+    let probar = |nombre: &str,
+                  leer: &dyn Fn() -> bool,
+                  (x, x_texto): (f32, f32),
+                  ys: (i32, i32)|
+     -> Result<(), String> {
+        let inicial = leer();
+        let fila = (ys.0..ys.1)
+            .rev()
+            .step_by(4)
+            .find(|y| {
+                clic(x, *y as f32);
+                leer() != inicial
+            })
+            .ok_or(format!("{nombre}: no se pudo marcar"))?;
+        // Desmarcar: sobre la caja y, otra vez, sobre el texto.
+        clic(x, fila as f32);
+        if leer() != inicial {
+            return Err(format!("{nombre}: no se pudo desmarcar"));
+        }
+        clic(x_texto, fila as f32);
+        clic(x_texto, fila as f32);
+        if leer() != inicial {
+            return Err(format!("{nombre}: el texto no alterna"));
+        }
+        Ok(())
+    };
+    tamano(ui, 1280.0, 840.0);
+    navegar(ui, est, 3);
+    crate::acciones::abrir_deuda(ui, est, None);
+    // Diálogo de 560 de ancho, centrado: la caja queda a 34 del borde izquierdo.
+    probar("Deuda saldada", &|| f.get_b1(), (394.0, 450.0), (560, 700))?;
+    ui.global::<Form>().invoke_cancelar();
+    navegar(ui, est, 6);
+    let d = ui.global::<crate::DatosD>();
+    // A la derecha de los botones, que abrirían el diálogo de archivos: la casilla ocupa todo el ancho.
+    probar(
+        "Volver a importar",
+        &|| d.get_forzar(),
+        (900.0, 700.0),
+        (100, 300),
+    )?;
+    Ok(())
 }
 
 /// Colapsa y expande el menú con clics reales, y comprueba el modo automático.
@@ -515,9 +586,23 @@ fn prueba_configuracion(ui: &Ventana, est: &Est) -> Result<(), String> {
     if app.get_alertas().row_count() == 0 {
         return Err("el modo demo debe tener alertas".into());
     }
+    // Depende de la fecha de hoy: lo fijo es que no quede ninguna vencida.
+    let vencidas = |app: &App| {
+        app.get_alertas()
+            .iter()
+            .filter(|f| {
+                f.etiquetas
+                    .row_data(0)
+                    .is_some_and(|e| e.starts_with("Venció"))
+            })
+            .count()
+    };
+    if vencidas(&app) == 0 {
+        return Err("el modo demo debe tener una alerta vencida".into());
+    }
     app.set_alerta_vencidos(false);
     app.invoke_ajustes_cambiados();
-    if app.get_alertas().row_count() != 0 {
+    if vencidas(&app) != 0 {
         return Err("sin vencidos no debe quedar la alerta vencida".into());
     }
     app.set_alerta_vencidos(true);

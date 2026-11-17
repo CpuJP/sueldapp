@@ -759,7 +759,7 @@ pub struct DeudaVista {
     pub pendiente: Option<Monto>,
     pub progreso: Option<Decimal>,
     pub cuotas_pagadas: usize,
-    pub cuotas_registradas: usize,
+    pub cuotas_total: usize,
     pub fin_estimado: Option<String>,
     pub cuotas: Vec<GastoVista>,
 }
@@ -783,14 +783,14 @@ pub fn listar_deudas(c: &Connection) -> R<Vec<DeudaVista>> {
                 periodo: ctx.periodo(g.mes_id),
             })
             .collect();
-        let s = saldo_deuda(d.total, d.ajuste, &cuotas);
+        let s = saldo_deuda(d.total, d.ajuste, &cuotas, d.cuotas);
         v.push(DeudaVista {
             total_texto: d.total.map(formatear),
             pagado: monto(s.pagado),
             pendiente: s.pendiente.map(monto),
             progreso: s.progreso,
             cuotas_pagadas: s.cuotas_pagadas,
-            cuotas_registradas: s.cuotas_registradas,
+            cuotas_total: s.cuotas_total,
             fin_estimado: s.fin_estimado.map(nombre_periodo),
             cuotas: propias.into_iter().map(|g| ctx.gasto(g)).collect(),
             deuda: d,
@@ -813,6 +813,8 @@ pub struct DeudaEntrada {
     pub ajuste: Option<String>,
     pub saldada: bool,
     pub notas: String,
+    /// Tal como la escribió el usuario; vacío si no se conoce.
+    pub cuotas: String,
 }
 
 pub fn guardar_deuda(c: &Connection, deuda: DeudaEntrada) -> R<Deuda> {
@@ -829,6 +831,13 @@ pub fn guardar_deuda(c: &Connection, deuda: DeudaEntrada) -> R<Deuda> {
         saldada: deuda.saldada,
         notas: deuda.notas,
         origen: previo.and_then(|p| p.origen),
+        cuotas: match deuda.cuotas.trim() {
+            "" => None,
+            t => Some(
+                t.parse()
+                    .map_err(|_| "El número de cuotas debe ser un número entero, como 12.")?,
+            ),
+        },
     };
     repo::guardar_deuda(c, &d).map_err(e)
 }
@@ -1161,7 +1170,7 @@ pub fn tablero(c: &Connection, desde: Option<(i32, u32)>, hasta: Option<(i32, u3
                 periodo: ctx.periodo(g.mes_id),
             })
             .collect();
-        let s = saldo_deuda(d.total, d.ajuste, &cuotas);
+        let s = saldo_deuda(d.total, d.ajuste, &cuotas, d.cuotas);
         pagada += s.pagado;
         if let Some(p) = s.pendiente.filter(|p| p.is_sign_positive() && !p.is_zero()) {
             pendiente += p;
@@ -1497,6 +1506,7 @@ mod tests {
                 ajuste: None,
                 saldada: false,
                 notas: String::new(),
+                cuotas: "12".into(),
             },
         )
         .unwrap();

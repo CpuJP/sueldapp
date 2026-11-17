@@ -528,6 +528,7 @@ fn importar_original(
                 saldada: d.saldada,
                 notas,
                 origen: Some(o(d.fila, 0)),
+                cuotas: None,
             },
         )?;
         let detalle = if sin_formula {

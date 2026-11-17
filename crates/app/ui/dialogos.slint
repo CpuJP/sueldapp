@@ -269,6 +269,15 @@ export component Dialogo inherits Rectangle {
                         }
                     }
                     Campos {
+                        etiqueta: "Número de cuotas";
+                        ayuda: "Déjalo vacío si no lo sabes. Con él se calculan las cuotas pagadas de cuántas y el fin estimado.";
+                        Campo {
+                            etiqueta: "Número de cuotas";
+                            marcador: "Por ejemplo, 12";
+                            texto <=> Form.t5;
+                        }
+                    }
+                    Campos {
                         etiqueta: "Notas";
                         Campo {
                             etiqueta: "Notas";

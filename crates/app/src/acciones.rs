@@ -474,6 +474,11 @@ pub fn abrir_deuda(ui: &Ventana, est: &Est, id: Option<i64>) {
             .map(|d| monto_campo(d.ajuste))
             .unwrap_or("0".into())));
         f.set_t4(s(d.as_ref().map(|d| d.notas.clone()).unwrap_or_default()));
+        f.set_t5(s(d
+            .as_ref()
+            .and_then(|d| d.cuotas)
+            .map(|n| n.to_string())
+            .unwrap_or_default()));
         f.set_b1(d.as_ref().is_some_and(|d| d.saldada));
         e.form = Some(Formulario::Deuda { id });
         Ok(())
@@ -692,6 +697,7 @@ pub fn guardar(ui: &Ventana, est: &Est) {
                         ajuste: opcional(&f.get_t3()),
                         saldada: f.get_b1(),
                         notas: f.get_t4().to_string(),
+                        cuotas: f.get_t5().to_string(),
                     },
                 )?;
                 Ok("Deuda guardada.".into())

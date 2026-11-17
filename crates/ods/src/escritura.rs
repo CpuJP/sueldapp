@@ -164,7 +164,7 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
         Tabla {
             nombre: "Deudas",
             encabezados: vec![
-                "id", "nombre", "total", "ajuste", "saldada", "notas", "origen",
+                "id", "nombre", "total", "ajuste", "saldada", "notas", "origen", "cuotas",
             ],
             filas: deudas
                 .iter()
@@ -176,7 +176,8 @@ pub fn tablas(c: &Connection) -> Result<Vec<Tabla>, Error> {
                         d.ajuste,
                         d.saldada,
                         d.notas.clone(),
-                        d.origen.clone()
+                        d.origen.clone(),
+                        d.cuotas.map(i64::from)
                     ]
                 })
                 .collect(),
@@ -514,6 +515,13 @@ pub fn restaurar(c: &Connection, hojas: &[Hoja], inf: &mut Informe) -> Result<()
             saldada: f.bool("saldada")?,
             notas: f.txt("notas"),
             origen: f.txt_opc("origen"),
+            // Las exportaciones anteriores a la 0.5.1 no traen esta columna.
+            cuotas: f
+                .entero("cuotas")?
+                .map(|n| {
+                    u32::try_from(n).map_err(|_| Error::Formato(format!("cuotas inválidas: {n}")))
+                })
+                .transpose()?,
         };
         repo::restaurar_deuda(c, &d, &[])?;
         log(format!("Deudas!{}", d.nombre), "deuda".into());

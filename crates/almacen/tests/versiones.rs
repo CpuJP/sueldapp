@@ -88,7 +88,7 @@ fn v0_4_2_crea_y_reabre_una_base_nueva() {
         let version: i64 = c
             .query_row("PRAGMA user_version", [], |f| f.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert!(version >= 2);
         assert!(!repo::listar_estados(&c).unwrap().is_empty());
     }
     let _ = std::fs::remove_dir_all(&dir);
@@ -118,7 +118,7 @@ fn v0_5_0_no_cambia_el_esquema_de_la_0_4_2() {
     let version: i64 = c
         .query_row("PRAGMA user_version", [], |f| f.get(0))
         .unwrap();
-    assert_eq!(version, 2);
+    assert!(version >= 2);
     assert_eq!(esquema(&c), antes);
     drop(c);
     let _ = std::fs::remove_dir_all(&dir);

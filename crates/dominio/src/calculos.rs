@@ -189,11 +189,18 @@ pub struct SaldoDeuda {
     pub progreso: Option<Dinero>,
     pub cuotas_pagadas: usize,
     pub cuotas_registradas: usize,
-    /// Periodo de la última cuota registrada.
+    /// Número total de cuotas: el conocido o, si no, las registradas.
+    pub cuotas_total: usize,
+    /// Mes de la última cuota: según el número de cuotas si se conoce, o la última registrada.
     pub fin_estimado: Option<Periodo>,
 }
 
-pub fn saldo_deuda(total: Option<Dinero>, ajuste: Dinero, cuotas: &[Cuota]) -> SaldoDeuda {
+pub fn saldo_deuda(
+    total: Option<Dinero>,
+    ajuste: Dinero,
+    cuotas: &[Cuota],
+    num_cuotas: Option<u32>,
+) -> SaldoDeuda {
     let pagadas: Vec<&Cuota> = cuotas.iter().filter(|c| c.pagada).collect();
     let pagado = ajuste + pagadas.iter().map(|c| c.monto).sum::<Dinero>();
     let pendiente = total.map(|t| t - pagado);
@@ -207,7 +214,21 @@ pub fn saldo_deuda(total: Option<Dinero>, ajuste: Dinero, cuotas: &[Cuota]) -> S
         progreso,
         cuotas_pagadas: pagadas.len(),
         cuotas_registradas: cuotas.len(),
-        fin_estimado: cuotas.iter().map(|c| c.periodo).max(),
+        cuotas_total: num_cuotas.map_or(cuotas.len(), |n| n as usize),
+        fin_estimado: fin_de_cuotas(cuotas, num_cuotas),
+    }
+}
+
+/// Si faltan cuotas por registrar, la última llega `n − 1` meses después de la primera.
+fn fin_de_cuotas(cuotas: &[Cuota], num_cuotas: Option<u32>) -> Option<Periodo> {
+    let ultima = cuotas.iter().map(|c| c.periodo).max();
+    match (num_cuotas, cuotas.iter().map(|c| c.periodo).min()) {
+        (Some(n), Some((a, m))) if n as usize > cuotas.len() => {
+            let indice = a * 12 + m as i32 - 1 + n as i32 - 1;
+            let fin = (indice.div_euclid(12), indice.rem_euclid(12) as u32 + 1);
+            ultima.map(|u| u.max(fin))
+        }
+        _ => ultima,
     }
 }
 
@@ -393,6 +414,7 @@ mod tests {
             Some(dec!(800000)),
             dec!(0),
             &[c(dec!(410000), true, 1), c(dec!(410000), true, 2)],
+            None,
         );
         assert_eq!(s.pendiente, Some(dec!(-20000)));
         assert_eq!(s.progreso, Some(dec!(100)));
@@ -401,6 +423,7 @@ mod tests {
             Some(dec!(1000)),
             dec!(100),
             &[c(dec!(200), true, 3), c(dec!(200), false, 5)],
+            None,
         );
         assert_eq!(s.pagado, dec!(300));
         assert_eq!(s.pendiente, Some(dec!(700)));
@@ -410,8 +433,32 @@ mod tests {
     }
 
     #[test]
+    fn numero_de_cuotas_conocido() {
+        let c = |m, p, mes| Cuota {
+            monto: m,
+            pagada: p,
+            periodo: (2026, mes),
+        };
+        // 12 cuotas desde noviembre de 2026, con 2 registradas: termina en octubre de 2027.
+        let cuotas = [c(dec!(100), true, 11), c(dec!(100), false, 12)];
+        let s = saldo_deuda(Some(dec!(1200)), dec!(0), &cuotas, Some(12));
+        assert_eq!((s.cuotas_pagadas, s.cuotas_total), (1, 12));
+        assert_eq!(s.fin_estimado, Some((2027, 10)));
+        // Sin el número, como antes: las registradas y la última.
+        let s = saldo_deuda(Some(dec!(1200)), dec!(0), &cuotas, None);
+        assert_eq!((s.cuotas_total, s.fin_estimado), (2, Some((2026, 12))));
+        // Todas registradas, o más de las dichas: manda la última registrada.
+        let s = saldo_deuda(None, dec!(0), &cuotas, Some(2));
+        assert_eq!(s.fin_estimado, Some((2026, 12)));
+        let s = saldo_deuda(None, dec!(0), &cuotas, Some(1));
+        assert_eq!(s.fin_estimado, Some((2026, 12)));
+        // Sin cuotas registradas no hay desde dónde contar.
+        assert_eq!(saldo_deuda(None, dec!(0), &[], Some(6)).fin_estimado, None);
+    }
+
+    #[test]
     fn deuda_sin_total() {
-        let s = saldo_deuda(None, dec!(5), &[]);
+        let s = saldo_deuda(None, dec!(5), &[], None);
         assert_eq!(
             (s.pendiente, s.progreso, s.fin_estimado),
             (None, None, None)

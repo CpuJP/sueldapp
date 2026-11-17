@@ -254,7 +254,8 @@ component Menu inherits Vidrio {
             vertical-stretch: 0;
             alignment: stretch;
             Boton {
-                texto: App.alertas-texto;
+                // Corto para que quepa en el menú; el detalle va en el nombre accesible y en la lista.
+                texto: App.alertas.length == 1 ? "1 pago cercano" : App.alertas.length + " pagos cercanos";
                 solo-icono: root.compacto;
                 icono: Iconos.alerta;
                 etiqueta-accesible: App.alertas-texto;

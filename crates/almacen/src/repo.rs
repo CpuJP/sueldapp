@@ -383,7 +383,7 @@ pub fn restaurar_ingreso(c: &Connection, i: &Ingreso) -> Resultado<Ingreso> {
 
 // ---------- Deudas ----------
 
-const COLS_DEUDA: &str = "id, nombre, total, ajuste, saldada, notas, origen";
+const COLS_DEUDA: &str = "id, nombre, total, ajuste, saldada, notas, origen, cuotas";
 
 fn fila_deuda(f: &Row) -> rusqlite::Result<Deuda> {
     Ok(Deuda {
@@ -394,6 +394,7 @@ fn fila_deuda(f: &Row) -> rusqlite::Result<Deuda> {
         saldada: f.get(4)?,
         notas: f.get(5)?,
         origen: f.get(6)?,
+        cuotas: f.get(7)?,
     })
 }
 
@@ -415,7 +416,7 @@ pub fn deuda(c: &Connection, id: i64) -> Resultado<Deuda> {
 
 fn insertar_deuda(c: &Connection, d: &Deuda, id: Option<i64>) -> Resultado<i64> {
     c.execute(
-        &format!("INSERT INTO deudas ({COLS_DEUDA}) VALUES (?1,?2,?3,?4,?5,?6,?7)"),
+        &format!("INSERT INTO deudas ({COLS_DEUDA}) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)"),
         params![
             id,
             d.nombre.trim(),
@@ -423,7 +424,8 @@ fn insertar_deuda(c: &Connection, d: &Deuda, id: Option<i64>) -> Resultado<i64> 
             texto(d.ajuste),
             d.saldada,
             d.notas,
-            d.origen
+            d.origen,
+            d.cuotas
         ],
     )?;
     Ok(c.last_insert_rowid())
@@ -433,9 +435,14 @@ pub fn guardar_deuda(c: &Connection, d: &Deuda) -> Resultado<Deuda> {
     d.validar()?;
     let id = match resolver_id(c, "deudas", d.id, &d.origen)? {
         Some(id) => {
+            // Reimportar por `origen` no trae el número de cuotas: no debe borrar el anotado.
+            let cuotas = match (d.id, d.cuotas) {
+                (None, None) => deuda(c, id)?.cuotas,
+                _ => d.cuotas,
+            };
             let n = c.execute(
-                "UPDATE deudas SET nombre=?1, total=?2, ajuste=?3, saldada=?4, notas=?5, origen=?6 \
-                 WHERE id=?7",
+                "UPDATE deudas SET nombre=?1, total=?2, ajuste=?3, saldada=?4, notas=?5, origen=?6, \
+                 cuotas=?7 WHERE id=?8",
                 params![
                     d.nombre.trim(),
                     texto_opc(d.total),
@@ -443,6 +450,7 @@ pub fn guardar_deuda(c: &Connection, d: &Deuda) -> Resultado<Deuda> {
                     d.saldada,
                     d.notas,
                     d.origen,
+                    cuotas,
                     id
                 ],
             )?;
@@ -871,6 +879,39 @@ mod tests {
     }
 
     #[test]
+    fn numero_de_cuotas_se_guarda_y_sobrevive_a_reimportar() {
+        let c = crate::abrir_memoria().unwrap();
+        let base = Deuda {
+            id: None,
+            nombre: "PC".into(),
+            total: None,
+            ajuste: d("0"),
+            saldada: false,
+            notas: String::new(),
+            origen: Some("Hoja!B2".into()),
+            cuotas: Some(12),
+        };
+        let g = guardar_deuda(&c, &base).unwrap();
+        assert_eq!(g.cuotas, Some(12));
+        // Reimportación: mismo origen, sin id ni número.
+        let r = guardar_deuda(
+            &c,
+            &Deuda {
+                cuotas: None,
+                ..base.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!((r.id, r.cuotas), (g.id, Some(12)));
+        // Editar en la app sí puede quitarlo; cero no es válido.
+        let mut e = r;
+        e.cuotas = None;
+        assert_eq!(guardar_deuda(&c, &e).unwrap().cuotas, None);
+        e.cuotas = Some(0);
+        assert!(guardar_deuda(&c, &e).is_err());
+    }
+
+    #[test]
     fn fecha_de_pago_se_guarda_y_sobrevive_a_reimportar() {
         let c = crate::abrir_memoria().unwrap();
         let m = mes_nuevo(&c);
@@ -961,6 +1002,7 @@ mod tests {
                 saldada: false,
                 notas: String::new(),
                 origen: None,
+                cuotas: None,
             },
         )
         .unwrap();

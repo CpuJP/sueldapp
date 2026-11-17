@@ -82,6 +82,8 @@ pub struct Deuda {
     pub saldada: bool,
     pub notas: String,
     pub origen: Option<String>,
+    /// Número total de cuotas, si se conoce.
+    pub cuotas: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -166,6 +168,9 @@ impl Deuda {
         no_vacio(&self.nombre, "el nombre de la deuda")?;
         if let Some(t) = self.total {
             no_negativo(t, "El total")?;
+        }
+        if self.cuotas == Some(0) {
+            return Err(Invalido("El número de cuotas debe ser 1 o más.".into()));
         }
         Ok(())
     }

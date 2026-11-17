@@ -386,55 +386,69 @@ export component Interruptor inherits Rectangle {
     }
 }
 
-export component Casilla inherits HorizontalLayout {
+// Casilla de verificación. El área de clic cubre la caja y el texto (antes era una celda más
+// del layout y no siempre quedaba debajo del puntero).
+export component Casilla inherits Rectangle {
     in-out property <bool> marcada;
     in property <string> texto;
     callback cambiado(bool);
-    spacing: 10px;
-    caja := Rectangle {
-        width: 20px;
-        height: 20px;
-        y: (parent.height - self.height) / 2;
-        border-radius: 6px;
-        background: marcada ? Tema.acento : Tema.vidrio-hundido;
-        border-width: fs.has-focus ? 2px : 1px;
-        border-color: fs.has-focus ? Tema.acento : Tema.base-eje;
-        accessible-role: checkbox;
-        accessible-checkable: true;
-        accessible-checked: marcada;
-        accessible-label: texto;
-        if marcada: Icono {
-            x: 1px;
-            y: 1px;
-            d: Iconos.check;
-            color: Tema.acento-texto;
-            grosor: 3px;
-        }
-        fs := FocusScope {
-            key-pressed(e) => {
-                if e.text == " " {
-                    root.marcada = !root.marcada;
-                    root.cambiado(root.marcada);
-                    return accept;
+    function alternar() {
+        root.marcada = !root.marcada;
+        root.cambiado(root.marcada);
+    }
+    min-height: 24px;
+    accessible-role: checkbox;
+    accessible-checkable: true;
+    accessible-checked: root.marcada;
+    accessible-label: root.texto;
+    accessible-action-default => {
+        root.alternar();
+    }
+    forward-focus: fs;
+    HorizontalLayout {
+        spacing: 10px;
+        alignment: start;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 20px;
+                height: 20px;
+                border-radius: 6px;
+                background: root.marcada ? Tema.acento : Tema.vidrio-hundido;
+                border-width: fs.has-focus ? 2px : 1px;
+                border-color: fs.has-focus ? Tema.acento : Tema.base-eje;
+                if root.marcada: Icono {
+                    x: 1px;
+                    y: 1px;
+                    d: Iconos.check;
+                    color: Tema.acento-texto;
+                    grosor: 3px;
                 }
-                reject
             }
         }
+        Text {
+            text: root.texto;
+            color: Tema.texto-2;
+            font-weight: 600;
+            font-size: 14px;
+            vertical-alignment: center;
+            wrap: word-wrap;
+        }
     }
-    Text {
-        text: texto;
-        color: Tema.texto-2;
-        font-weight: 600;
-        font-size: 14px;
-        vertical-alignment: center;
-        wrap: word-wrap;
+    fs := FocusScope {
+        key-pressed(e) => {
+            if e.text == " " {
+                root.alternar();
+                return accept;
+            }
+            reject
+        }
     }
     TouchArea {
         mouse-cursor: pointer;
         clicked => {
             fs.focus();
-            root.marcada = !root.marcada;
-            root.cambiado(root.marcada);
+            root.alternar();
         }
     }
 }
